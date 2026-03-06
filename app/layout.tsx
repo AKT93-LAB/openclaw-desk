@@ -15,8 +15,8 @@ const displayFont = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Nova Mission Control",
-  description: "Human-first control center for OpenClaw and Nova.",
+  title: "ClawDesk",
+  description: "Human-first mission control desk for OpenClaw.",
 };
 
 export default function RootLayout({
@@ -30,4 +30,3 @@ export default function RootLayout({
     </html>
   );
 }
-

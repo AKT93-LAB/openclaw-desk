@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>NDB Presentation</title>
+    <title>ClawDesk Presentation</title>
     <style>
       :root {
         color-scheme: light;
@@ -170,10 +170,10 @@
   <body>
     <main>
       <section class="hero">
-        <p class="eyebrow">NDB Presentation</p>
-        <h1>Nova Dashboard for OpenClaw</h1>
+        <p class="eyebrow">ClawDesk Presentation</p>
+        <h1>ClawDesk for OpenClaw</h1>
         <p>
-          NDB is a chat-first mission control layer for OpenClaw. It gives one operator a human
+          ClawDesk is a chat-first mission control layer for OpenClaw. It gives one operator a human
           control room for Nova, live office activity, approvals, automations, and agent editing
           without requiring direct config-file work for day-to-day administration.
         </p>
@@ -182,7 +182,7 @@
 
       <section>
         <p class="eyebrow">Product shape</p>
-        <h2>What NDB is</h2>
+        <h2>What ClawDesk is</h2>
         <div class="grid two">
           <article class="card">
             <h3>User experience</h3>
@@ -196,7 +196,7 @@
             <h3>Technical shape</h3>
             <ul>
               <li>Browser UI in front.</li>
-              <li>Local NDB service on the same host as OpenClaw.</li>
+              <li>Local ClawDesk service on the same host as OpenClaw.</li>
               <li>OpenClaw gateway bridge plus local workspace file access behind the UI.</li>
             </ul>
           </article>
@@ -205,26 +205,26 @@
 
       <section>
         <p class="eyebrow">Architecture</p>
-        <h2>How NDB works</h2>
+        <h2>How ClawDesk works</h2>
         <div class="grid three">
           <article class="card">
             <h3>Browser</h3>
             <p>Shows the shell, chat, live work, agent editor, automation summary, approvals, and settings.</p>
           </article>
           <article class="card">
-            <h3>NDB service</h3>
+            <h3>ClawDesk service</h3>
             <p>Holds gateway credentials server-side, builds dashboard snapshots, proxies events, and performs writeback.</p>
           </article>
           <article class="card">
             <h3>OpenClaw host</h3>
-            <p>Supplies real runtime data and real local workspace files. If this side is missing, NDB stays empty and honest.</p>
+            <p>Supplies real runtime data and real local workspace files. If this side is missing, ClawDesk stays empty and honest.</p>
           </article>
         </div>
       </section>
 
       <section>
         <p class="eyebrow">Live contract</p>
-        <h2>OpenClaw surfaces NDB uses</h2>
+        <h2>OpenClaw surfaces ClawDesk uses</h2>
         <div class="grid two">
           <article class="card">
             <h3>Read operations</h3>
@@ -271,8 +271,8 @@
           <article class="card">
             <h3>Host setup</h3>
             <ul>
-              <li>clone repo to <code>/opt/ndb</code></li>
-              <li>set env in <code>/etc/ndb/ndb.env</code></li>
+              <li>clone repo to <code>/opt/clawdesk</code></li>
+              <li>set env in <code>/etc/clawdesk/clawdesk.env</code></li>
               <li>build with <code>npm run build</code></li>
               <li>run behind <code>systemd</code> on <code>127.0.0.1:3010</code></li>
             </ul>
@@ -299,7 +299,7 @@
           <li>desktop shell and mobile drawers were verified with Playwright</li>
         </ul>
         <p style="margin-top: 12px;">
-          Live OpenClaw behavior still requires VPS-side validation because NDB will not fake that data.
+          Live OpenClaw behavior still requires VPS-side validation because ClawDesk will not fake that data.
         </p>
       </section>
 
@@ -308,19 +308,19 @@
         <h2>Current verified shell</h2>
         <div class="shot-grid">
           <figure>
-            <img src="./assets/ndb-shell-desktop-current.png" alt="Desktop shell" />
+            <img src="./assets/clawdesk-shell-desktop-current.png" alt="Desktop shell" />
             <figcaption>Desktop shell with left navigation, main workspace, and right inspector.</figcaption>
           </figure>
           <figure>
-            <img src="./assets/ndb-shell-mobile-closed.png" alt="Mobile shell closed" />
+            <img src="./assets/clawdesk-shell-mobile-closed.png" alt="Mobile shell closed" />
             <figcaption>Mobile shell with both drawers closed by default.</figcaption>
           </figure>
           <figure>
-            <img src="./assets/ndb-shell-mobile-menu-open.png" alt="Mobile menu drawer" />
+            <img src="./assets/clawdesk-shell-mobile-menu-open.png" alt="Mobile menu drawer" />
             <figcaption>Mobile menu drawer open.</figcaption>
           </figure>
           <figure>
-            <img src="./assets/ndb-shell-mobile-inspector-open.png" alt="Mobile inspector drawer" />
+            <img src="./assets/clawdesk-shell-mobile-inspector-open.png" alt="Mobile inspector drawer" />
             <figcaption>Mobile inspector drawer open.</figcaption>
           </figure>
         </div>

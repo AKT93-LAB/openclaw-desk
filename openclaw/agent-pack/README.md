@@ -77,7 +77,7 @@ Ask your OpenClaw agent to help you do these things in order:
 
 ## What the dashboard expects
 
-The Mission Control app is built to prefer the `nova` agent session when it exists.
+The ClawDesk app is built to prefer the `nova` agent session when it exists.
 
 That means once `nova` is configured in OpenClaw, the dashboard will naturally route your chat to Nova instead of the generic main agent.
 

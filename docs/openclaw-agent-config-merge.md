@@ -1,6 +1,6 @@
-# OpenClaw Config Merge Guide for NDB
+# OpenClaw Config Merge Guide for ClawDesk
 
-This guide covers the safe way to merge the proposed NDB office setup into an existing OpenClaw install.
+This guide covers the safe way to merge the proposed ClawDesk office setup into an existing OpenClaw install.
 
 ## Critical rule
 
@@ -14,9 +14,9 @@ Why:
 
 A careless patch can wipe unrelated working configuration.
 
-## What NDB needs from OpenClaw
+## What ClawDesk needs from OpenClaw
 
-NDB does not need a total OpenClaw redesign.
+ClawDesk does not need a total OpenClaw redesign.
 
 It needs:
 
@@ -84,7 +84,7 @@ The workspace directories in [openclaw/agent-pack/workspaces](../openclaw/agent-
 
 Recommended live location:
 
-- `/opt/ndb/openclaw/agent-pack/workspaces/<agent-id>`
+- `/opt/clawdesk/openclaw/agent-pack/workspaces/<agent-id>`
 
 ### Step 4. Build a merged candidate config
 
@@ -157,9 +157,9 @@ The merge is acceptable only if all of these pass:
 - `agents.list` includes the office agents
 - each office workspace exists on disk
 - `agent:nova:main` can open a live session
-- NDB shows the real office agents
-- Nova chat works from NDB
-- office events appear in NDB
+- ClawDesk shows the real office agents
+- Nova chat works from ClawDesk
+- office events appear in ClawDesk
 - approvals still function
 - no existing OpenClaw behavior regressed
 

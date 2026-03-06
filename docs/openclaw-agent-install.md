@@ -1,21 +1,21 @@
-# NDB Install and Hosting Guide
+# ClawDesk Install and Hosting Guide
 
-This guide is written for the OpenClaw agent or operator who will install NDB on the same VPS or PC as OpenClaw.
+This guide is written for the OpenClaw agent or operator who will install ClawDesk on the same VPS or PC as OpenClaw.
 
 ## Outcome
 
 At the end of this runbook, all of these should be true:
 
-- NDB is installed under `/opt/ndb`
-- NDB runs as a long-lived service on `127.0.0.1:3010`
-- NDB can reach the live OpenClaw gateway
+- ClawDesk is installed under `/opt/clawdesk`
+- ClawDesk runs as a long-lived service on `127.0.0.1:3010`
+- ClawDesk can reach the live OpenClaw gateway
 - `GET /api/dashboard` returns `mode: "live"`
 - the dashboard shows real agents, sessions, approvals, automations, and config
 - the proposed office pack has been reviewed for merge, not blindly applied
 
 ## Prerequisites
 
-- NDB and OpenClaw run on the same host
+- ClawDesk and OpenClaw run on the same host
 - Node 22+ is installed
 - the OpenClaw gateway is reachable locally
 - a working OpenClaw gateway credential is available
@@ -24,7 +24,7 @@ At the end of this runbook, all of these should be true:
 Recommended:
 
 - Node 24 LTS
-- a dedicated service user such as `ndb`
+- a dedicated service user such as `clawdesk`
 - private access through Tailgate / Tailscale / reverse proxy
 
 ## Verified app state before VPS install
@@ -50,33 +50,33 @@ That proof happens on the target host during the live validation steps below.
 
 ## Recommended production layout
 
-- repo checkout: `/opt/ndb`
-- env file: `/etc/ndb/ndb.env`
-- runtime data: `/var/lib/ndb`
-- service user: `ndb`
+- repo checkout: `/opt/clawdesk`
+- env file: `/etc/clawdesk/clawdesk.env`
+- runtime data: `/var/lib/clawdesk`
+- service user: `clawdesk`
 - host bind: `127.0.0.1`
 - port: `3010`
 
 ## 1. Clone the repo
 
 ```bash
-sudo useradd --system --create-home --home-dir /var/lib/ndb --shell /usr/sbin/nologin ndb || true
-sudo git clone https://github.com/AKT93-LAB/NDB.git /opt/ndb
-sudo chown -R ndb:ndb /opt/ndb
-cd /opt/ndb
+sudo useradd --system --create-home --home-dir /var/lib/clawdesk --shell /usr/sbin/nologin clawdesk || true
+sudo git clone https://github.com/AKT93-LAB/openclaw-desk.git /opt/clawdesk
+sudo chown -R clawdesk:clawdesk /opt/clawdesk
+cd /opt/clawdesk
 ```
 
 If the repo is already present:
 
 ```bash
-cd /opt/ndb
+cd /opt/clawdesk
 git pull --ff-only
 ```
 
 ## 2. Install dependencies
 
 ```bash
-cd /opt/ndb
+cd /opt/clawdesk
 npm ci
 ```
 
@@ -88,22 +88,22 @@ npm install
 
 ## 3. Create the environment file
 
-Use [deploy/ndb.env.example](../deploy/ndb.env.example) as the template.
+Use [deploy/clawdesk.env.example](../deploy/clawdesk.env.example) as the template.
 
 Required values:
 
 - `OPENCLAW_GATEWAY_URL`
 - either `OPENCLAW_GATEWAY_TOKEN` or `OPENCLAW_GATEWAY_PASSWORD`
-- `MISSION_CONTROL_DATA_DIR=/var/lib/ndb`
+- `MISSION_CONTROL_DATA_DIR=/var/lib/clawdesk`
 - `PORT=3010`
 
 Example:
 
 ```bash
-sudo mkdir -p /etc/ndb /var/lib/ndb
-sudo cp deploy/ndb.env.example /etc/ndb/ndb.env
-sudo chown -R ndb:ndb /var/lib/ndb
-sudo nano /etc/ndb/ndb.env
+sudo mkdir -p /etc/clawdesk /var/lib/clawdesk
+sudo cp deploy/clawdesk.env.example /etc/clawdesk/clawdesk.env
+sudo chown -R clawdesk:clawdesk /var/lib/clawdesk
+sudo nano /etc/clawdesk/clawdesk.env
 ```
 
 Example env:
@@ -111,14 +111,14 @@ Example env:
 ```bash
 OPENCLAW_GATEWAY_URL=ws://127.0.0.1:18789
 OPENCLAW_GATEWAY_TOKEN=<token>
-MISSION_CONTROL_DATA_DIR=/var/lib/ndb
+MISSION_CONTROL_DATA_DIR=/var/lib/clawdesk
 PORT=3010
 ```
 
 ## 4. Build and verify the app
 
 ```bash
-cd /opt/ndb
+cd /opt/clawdesk
 npm run typecheck
 npm run build
 ```
@@ -130,12 +130,12 @@ Expected:
 
 ## 5. Smoke-test before installing the service
 
-Load env values and start NDB:
+Load env values and start ClawDesk:
 
 ```bash
-cd /opt/ndb
+cd /opt/clawdesk
 set -a
-source /etc/ndb/ndb.env
+source /etc/clawdesk/clawdesk.env
 set +a
 npm run start -- --hostname 127.0.0.1 --port 3010
 ```
@@ -154,20 +154,20 @@ Expected:
 
 Interpret the result correctly:
 
-- `mode: "offline"` means NDB is working but not yet connected to OpenClaw
+- `mode: "offline"` means ClawDesk is working but not yet connected to OpenClaw
 - `mode: "live"` means the gateway connection is working
 
-NDB must **not** fabricate a fake office state when offline.
+ClawDesk must **not** fabricate a fake office state when offline.
 
 ## 6. Install the systemd service
 
-Use [deploy/systemd/ndb.service](../deploy/systemd/ndb.service).
+Use [deploy/systemd/clawdesk.service](../deploy/systemd/clawdesk.service).
 
 ```bash
-sudo cp deploy/systemd/ndb.service /etc/systemd/system/ndb.service
+sudo cp deploy/systemd/clawdesk.service /etc/systemd/system/clawdesk.service
 sudo systemctl daemon-reload
-sudo systemctl enable --now ndb
-sudo systemctl status ndb
+sudo systemctl enable --now clawdesk
+sudo systemctl status clawdesk
 ```
 
 If `npm` is not located at `/usr/bin/npm` on that host, adjust `ExecStart` in the service file before enabling it.
@@ -183,27 +183,27 @@ bash deploy/scripts/smoke-check.sh
 Logs:
 
 ```bash
-sudo journalctl -u ndb -f
+sudo journalctl -u clawdesk -f
 ```
 
-## 8. Expose NDB through private access only
+## 8. Expose ClawDesk through private access only
 
 Recommended:
 
-- keep NDB bound to `127.0.0.1`
+- keep ClawDesk bound to `127.0.0.1`
 - expose it only through the existing private access layer
 
 Optional Nginx example:
 
-- [deploy/nginx/ndb.conf](../deploy/nginx/ndb.conf)
+- [deploy/nginx/clawdesk.conf](../deploy/nginx/clawdesk.conf)
 
 If you already use Tailgate / Tailscale Serve / reverse proxy, point it at:
 
 - upstream `http://127.0.0.1:3010`
 
-## 9. Connect NDB to the real OpenClaw host state
+## 9. Connect ClawDesk to the real OpenClaw host state
 
-NDB depends on the live gateway and live local files.
+ClawDesk depends on the live gateway and live local files.
 
 You must confirm that the following all work on the target host:
 
@@ -233,13 +233,13 @@ Do **not** call `config.patch` with the office patch file directly.
 Copy the proposed workspaces into a stable location on the same host:
 
 ```bash
-cd /opt/ndb
+cd /opt/clawdesk
 ls openclaw/agent-pack/workspaces
 ```
 
 Recommended live path:
 
-- `/opt/ndb/openclaw/agent-pack/workspaces/<agent-id>`
+- `/opt/clawdesk/openclaw/agent-pack/workspaces/<agent-id>`
 
 These paths must match whatever is placed in the reviewed OpenClaw config.
 
@@ -256,7 +256,7 @@ Before any config change:
 
 ## 13. Validate the office setup live
 
-NDB is considered ready only when all of these are true:
+ClawDesk is considered ready only when all of these are true:
 
 - `agent:nova:main` exists and responds
 - the dashboard shows `mode: "live"`
@@ -272,7 +272,7 @@ NDB is considered ready only when all of these are true:
 Current verified UI captures are in:
 
 - [docs/ui-gallery.html](./ui-gallery.html)
-- [docs/ndb-presentation.html](./ndb-presentation.html)
+- [docs/clawdesk-presentation.html](./clawdesk-presentation.html)
 
 These are useful for confirming the intended shell behavior before the live gateway is connected.
 
@@ -280,16 +280,16 @@ These are useful for confirming the intended shell behavior before the live gate
 
 If any live validation fails:
 
-1. stop the `ndb` service
+1. stop the `clawdesk` service
 2. restore the previous OpenClaw config backup
-3. keep the NDB checkout for debugging
+3. keep the ClawDesk checkout for debugging
 
 ## Files in this repo that matter most during install
 
 - [README.md](../README.md)
-- [deploy/ndb.env.example](../deploy/ndb.env.example)
-- [deploy/systemd/ndb.service](../deploy/systemd/ndb.service)
-- [deploy/nginx/ndb.conf](../deploy/nginx/ndb.conf)
+- [deploy/clawdesk.env.example](../deploy/clawdesk.env.example)
+- [deploy/systemd/clawdesk.service](../deploy/systemd/clawdesk.service)
+- [deploy/nginx/clawdesk.conf](../deploy/nginx/clawdesk.conf)
 - [deploy/scripts/smoke-check.sh](../deploy/scripts/smoke-check.sh)
 - [docs/openclaw-agent-config-merge.md](./openclaw-agent-config-merge.md)
 - [docs/openclaw-integration-contract.md](./openclaw-integration-contract.md)

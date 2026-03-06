@@ -21,7 +21,7 @@ export async function GET(request: Request) {
           kind: "system.notice",
           ts: Date.now(),
           title: "Gateway not configured",
-          message: error instanceof Error ? error.message : "Mission Control is waiting for OpenClaw gateway settings.",
+          message: error instanceof Error ? error.message : "ClawDesk is waiting for OpenClaw gateway settings.",
           severity: "warn",
         };
         controller.enqueue(encoder.encode(encodeEvent(event)));
@@ -49,7 +49,7 @@ export async function GET(request: Request) {
           kind: "system.notice",
           ts: Date.now(),
           title: "Gateway connection issue",
-          message: error instanceof Error ? error.message : "Mission Control could not reach OpenClaw.",
+          message: error instanceof Error ? error.message : "ClawDesk could not reach OpenClaw.",
           severity: "warn",
         };
         controller.enqueue(encoder.encode(encodeEvent(event)));

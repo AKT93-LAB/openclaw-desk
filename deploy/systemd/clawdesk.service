@@ -1,17 +1,17 @@
 [Unit]
-Description=NDB (Nova Dashboard)
+Description=ClawDesk
 After=network.target
 
 [Service]
 Type=simple
-WorkingDirectory=/opt/ndb
-EnvironmentFile=/etc/ndb/ndb.env
+WorkingDirectory=/opt/clawdesk
+EnvironmentFile=/etc/clawdesk/clawdesk.env
 Environment=NODE_ENV=production
 ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3010
 Restart=always
 RestartSec=5
-User=ndb
-Group=ndb
+User=clawdesk
+Group=clawdesk
 
 [Install]
 WantedBy=multi-user.target

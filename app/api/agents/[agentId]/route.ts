@@ -94,7 +94,7 @@ export async function POST(
     const response = await bridge.request("config.patch", {
       baseHash: configSnapshot.hash,
       raw,
-      note: `Mission Control updated agent ${agentId}`,
+      note: `ClawDesk updated agent ${agentId}`,
     });
 
     return Response.json({ ok: true, response });

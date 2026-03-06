@@ -468,7 +468,7 @@ class OpenClawBridge {
       kind: "gateway.connected",
       ts: Date.now(),
       title: "Gateway connected",
-      message: compactText(hello.server?.version, "Mission Control is linked to OpenClaw."),
+      message: compactText(hello.server?.version, "ClawDesk is linked to OpenClaw."),
       severity: "info",
     });
   }

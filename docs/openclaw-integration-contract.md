@@ -1,22 +1,22 @@
-# OpenClaw Integration Contract for NDB
+# OpenClaw Integration Contract for ClawDesk
 
-This document defines the exact OpenClaw surfaces NDB expects to use.
+This document defines the exact OpenClaw surfaces ClawDesk expects to use.
 
-It is the most important reference for an OpenClaw agent who needs to make NDB work end to end.
+It is the most important reference for an OpenClaw agent who needs to make ClawDesk work end to end.
 
 ## Deployment contract
 
-NDB should run on the same host as OpenClaw when live agent workspace editing is required.
+ClawDesk should run on the same host as OpenClaw when live agent workspace editing is required.
 
 Why:
 
-- NDB writes selected agent workspace files directly on disk
+- ClawDesk writes selected agent workspace files directly on disk
 - the browser must not hold gateway credentials
 - path discovery and local file access are host-side concerns
 
 ## Gateway contract
 
-NDB expects a reachable OpenClaw gateway URL in:
+ClawDesk expects a reachable OpenClaw gateway URL in:
 
 - `OPENCLAW_GATEWAY_URL`
 
@@ -27,12 +27,12 @@ Authentication can use either:
 
 If the gateway is unreachable or not configured:
 
-- NDB returns `mode: "offline"`
+- ClawDesk returns `mode: "offline"`
 - the dashboard remains empty instead of fabricating data
 
-## Read operations NDB depends on
+## Read operations ClawDesk depends on
 
-NDB currently reads live state through these gateway methods:
+ClawDesk currently reads live state through these gateway methods:
 
 - `agents.list`
 - `sessions.list`
@@ -41,11 +41,11 @@ NDB currently reads live state through these gateway methods:
 - `config.get`
 - `chat.history`
 
-NDB also listens to gateway events over WebSocket and exposes them to the browser as server-sent events from `/api/events`.
+ClawDesk also listens to gateway events over WebSocket and exposes them to the browser as server-sent events from `/api/events`.
 
-## Write operations NDB depends on
+## Write operations ClawDesk depends on
 
-NDB currently performs live actions through these gateway methods:
+ClawDesk currently performs live actions through these gateway methods:
 
 - `chat.send`
 - `exec.approval.resolve`
@@ -53,9 +53,9 @@ NDB currently performs live actions through these gateway methods:
 
 ## Config contract
 
-NDB uses `config.get` to discover live agent configuration and `config.patch` to update specific agent fields.
+ClawDesk uses `config.get` to discover live agent configuration and `config.patch` to update specific agent fields.
 
-NDB currently edits these config fields:
+ClawDesk currently edits these config fields:
 
 - `name`
 - `model`
@@ -67,14 +67,14 @@ NDB currently edits these config fields:
 - `identity.theme`
 - `identity.emoji`
 
-NDB assumes:
+ClawDesk assumes:
 
 - `config.get` can provide a raw or parsed config snapshot
 - `config.get` can provide a config hash if OpenClaw requires optimistic concurrency
 
 ## Agent discovery contract
 
-NDB derives the visible live team from:
+ClawDesk derives the visible live team from:
 
 - `agents.list`
 - the current `config.agents.list`
@@ -86,9 +86,9 @@ That means:
 
 ## Session contract
 
-NDB expects session keys to be available from `sessions.list`.
+ClawDesk expects session keys to be available from `sessions.list`.
 
-When possible, NDB infers the owning agent from session keys shaped like:
+When possible, ClawDesk infers the owning agent from session keys shaped like:
 
 - `agent:<agent-id>:...`
 
@@ -106,11 +106,11 @@ Operational expectation:
 If `nova` is absent:
 
 - the Nova composer stays disabled
-- NDB does not silently reroute to a fake or invented fallback
+- ClawDesk does not silently reroute to a fake or invented fallback
 
 ## Workspace file contract
 
-NDB currently exposes dashboard editing for these files inside each live agent workspace:
+ClawDesk currently exposes dashboard editing for these files inside each live agent workspace:
 
 - `AGENTS.md`
 - `SOUL.md`
@@ -120,15 +120,15 @@ NDB currently exposes dashboard editing for these files inside each live agent w
 - `USER.md`
 - `MEMORY.md`
 
-NDB resolves workspace paths from live config first.
+ClawDesk resolves workspace paths from live config first.
 
-If a workspace path begins with `~`, NDB expands it to the local host home directory before reading or writing files.
+If a workspace path begins with `~`, ClawDesk expands it to the local host home directory before reading or writing files.
 
 ## File safety contract
 
-NDB only allows writes to the approved agent file list above.
+ClawDesk only allows writes to the approved agent file list above.
 
-NDB rejects arbitrary path writes outside the resolved workspace root.
+ClawDesk rejects arbitrary path writes outside the resolved workspace root.
 
 ## Config merge warning
 
@@ -151,11 +151,11 @@ The intended operator policy for this project is:
 
 - any externally affecting action should require approval
 
-NDB can surface and resolve approvals, but the approval posture itself still depends on the OpenClaw configuration and runtime behavior.
+ClawDesk can surface and resolve approvals, but the approval posture itself still depends on the OpenClaw configuration and runtime behavior.
 
 ## Runtime expectations for a successful deployment
 
-NDB is working end to end only if all of these are true:
+ClawDesk is working end to end only if all of these are true:
 
 - the gateway connection is live
 - `GET /api/dashboard` returns `mode: "live"`
@@ -168,15 +168,15 @@ NDB is working end to end only if all of these are true:
 - agent config changes round-trip
 - agent workspace file changes round-trip
 
-## What NDB does not assume
+## What ClawDesk does not assume
 
-NDB does not assume:
+ClawDesk does not assume:
 
 - one exact OpenClaw folder layout for every machine
 - hardcoded workspace paths for every install
 - that a fake fallback state is acceptable
 
-NDB prefers discovery from live config and runtime state wherever possible.
+ClawDesk prefers discovery from live config and runtime state wherever possible.
 
 ## When an OpenClaw agent should stop and escalate
 

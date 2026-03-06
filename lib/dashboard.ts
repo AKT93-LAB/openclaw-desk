@@ -294,7 +294,7 @@ function buildOfflineSnapshot(errorMessage: string): MissionSnapshot {
     nova: {
       available: false,
       sessionKey: "unavailable",
-      chatPlaceholder: "Connect Mission Control to the OpenClaw gateway first.",
+      chatPlaceholder: "Connect ClawDesk to the OpenClaw gateway first.",
     },
     overview: {
       openSessions: 0,
@@ -384,7 +384,7 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
         available: nova.available,
         sessionKey: nova.sessionKey,
         chatPlaceholder: nova.available
-          ? "Ask Nova anything. Mission Control will show the real work as OpenClaw performs it."
+          ? "Ask Nova anything. ClawDesk will show the real work as OpenClaw performs it."
           : "No live Nova agent is configured in OpenClaw.",
       },
       overview: {
@@ -406,7 +406,7 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
     };
   } catch (error) {
     return buildOfflineSnapshot(
-      error instanceof Error ? error.message : "Mission Control could not reach OpenClaw.",
+      error instanceof Error ? error.message : "ClawDesk could not reach OpenClaw.",
     );
   }
 }

@@ -346,8 +346,8 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
         {compactDrawerVisible ? <button type="button" className="panel-scrim panel-scrim-visible" aria-label="Close open panel" onClick={closePanels} /> : null}
         <header className="shell-topbar">
           <div>
-            <p className="eyebrow">Mission Control</p>
-            <h1>Nova Dashboard</h1>
+            <p className="eyebrow">OpenClaw Desk</p>
+            <h1>ClawDesk</h1>
           </div>
           <div className="topbar-actions">
             <button type="button" className={joinClasses("button", compactViewport && leftPanelOpen ? "button-primary" : "button-ghost")} onClick={toggleLeftPanel}>
@@ -445,8 +445,8 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
       {compactDrawerVisible ? <button type="button" className="panel-scrim panel-scrim-visible" aria-label="Close open panel" onClick={closePanels} /> : null}
       <header className="shell-topbar">
         <div>
-          <p className="eyebrow">Mission Control</p>
-          <h1>Nova Dashboard</h1>
+          <p className="eyebrow">OpenClaw Desk</p>
+          <h1>ClawDesk</h1>
         </div>
         <div className="topbar-actions">
           <button type="button" className={joinClasses("button", compactViewport && leftPanelOpen ? "button-primary" : "button-ghost")} onClick={toggleLeftPanel}>Menu</button>
