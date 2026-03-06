@@ -40,11 +40,11 @@ function joinClasses(...values: Array<string | false | null | undefined>) {
   return values.filter(Boolean).join(" ");
 }
 
-function formatRelativeTime(timestamp?: number) {
+function formatRelativeTime(timestamp?: number, nowMs = Date.now()) {
   if (!timestamp) {
     return "just now";
   }
-  const deltaSeconds = Math.max(0, Math.round((Date.now() - timestamp) / 1000));
+  const deltaSeconds = Math.max(0, Math.round((nowMs - timestamp) / 1000));
   if (deltaSeconds < 60) {
     return `${deltaSeconds}s ago`;
   }
@@ -149,6 +149,7 @@ function ApprovalActions(props: {
 
 export function MissionControlShell({ initialSnapshot }: { initialSnapshot: MissionSnapshot }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
+  const [clockNowMs, setClockNowMs] = useState(initialSnapshot.generatedAtMs);
   const [activeView, setActiveView] = useState<ViewId>("home");
   const [composer, setComposer] = useState("");
   const [chatBusy, setChatBusy] = useState(false);
@@ -198,6 +199,20 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
   });
 
   useEffect(() => {
+    setClockNowMs(Date.now());
+    const intervalId = window.setInterval(() => {
+      setClockNowMs(Date.now());
+    }, 30_000);
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!snapshot.connection.connected) {
+      return;
+    }
+
     const source = new EventSource("/api/events");
     const handler = (event: Event) => {
       const payload = JSON.parse((event as MessageEvent<string>).data) as MissionEvent;
@@ -215,7 +230,7 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
         window.clearTimeout(refreshTimerRef.current);
       }
     };
-  }, [refreshSnapshot]);
+  }, [refreshSnapshot, snapshot.connection.connected]);
 
   async function sendMessage() {
     const message = composer.trim();
@@ -335,7 +350,7 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
                 <article key={message.id} className={joinClasses("chat-bubble", `chat-${message.role}`)}>
                   <header>
                     <strong>{message.role}</strong>
-                    <span>{formatRelativeTime(message.timestamp)}</span>
+                    <span>{formatRelativeTime(message.timestamp, clockNowMs)}</span>
                   </header>
                   <p>{message.text}</p>
                 </article>
@@ -399,7 +414,7 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
                         <strong>{approval.title}</strong>
                         <p>{approval.detail}</p>
                       </div>
-                      <small>{formatRelativeTime(approval.requestedAtMs)}</small>
+                      <small>{formatRelativeTime(approval.requestedAtMs, clockNowMs)}</small>
                       <ApprovalActions approval={approval} onResolve={resolveApproval} />
                     </article>
                   ))
@@ -417,21 +432,25 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
                 </div>
               </div>
               <div className="feed-list">
-                {snapshot.officeFeed.slice(0, 5).map((event) => (
-                  <article key={event.id} className={joinClasses("feed-card", `feed-${event.severity}`)}>
-                    <header>
-                      <strong>{event.title}</strong>
-                      <span>{formatRelativeTime(event.ts)}</span>
-                    </header>
-                    <p>{event.message}</p>
-                    {advancedMode && event.raw ? (
-                      <details className="advanced-details">
-                        <summary>Advanced details</summary>
-                        <pre className="raw-pre">{renderRawValue(event.raw)}</pre>
-                      </details>
-                    ) : null}
-                  </article>
-                ))}
+                {snapshot.officeFeed.length ? (
+                  snapshot.officeFeed.slice(0, 5).map((event) => (
+                    <article key={event.id} className={joinClasses("feed-card", `feed-${event.severity}`)}>
+                      <header>
+                        <strong>{event.title}</strong>
+                        <span>{formatRelativeTime(event.ts, clockNowMs)}</span>
+                      </header>
+                      <p>{event.message}</p>
+                      {advancedMode && event.raw ? (
+                        <details className="advanced-details">
+                          <summary>Advanced details</summary>
+                          <pre className="raw-pre">{renderRawValue(event.raw)}</pre>
+                        </details>
+                      ) : null}
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">Live chatter will appear here once Mission Control is connected.</p>
+                )}
               </div>
             </article>
           </div>
@@ -448,22 +467,26 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
               </div>
             </div>
             <div className="office-feed">
-              {snapshot.officeFeed.map((event) => (
-                <article key={event.id} className={joinClasses("office-line", `feed-${event.severity}`)}>
-                  <div className="office-line-meta">
-                    <strong>{event.title}</strong>
-                    <span>{event.agentId ?? "system"}</span>
-                    <small>{formatRelativeTime(event.ts)}</small>
-                  </div>
-                  <p>{event.message}</p>
-                  {advancedMode && event.raw ? (
-                    <details className="advanced-details">
-                      <summary>Advanced details</summary>
-                      <pre className="raw-pre">{renderRawValue(event.raw)}</pre>
-                    </details>
-                  ) : null}
-                </article>
-              ))}
+              {snapshot.officeFeed.length ? (
+                snapshot.officeFeed.map((event) => (
+                  <article key={event.id} className={joinClasses("office-line", `feed-${event.severity}`)}>
+                    <div className="office-line-meta">
+                      <strong>{event.title}</strong>
+                      <span>{event.agentId ?? "system"}</span>
+                      <small>{formatRelativeTime(event.ts, clockNowMs)}</small>
+                    </div>
+                    <p>{event.message}</p>
+                    {advancedMode && event.raw ? (
+                      <details className="advanced-details">
+                        <summary>Advanced details</summary>
+                        <pre className="raw-pre">{renderRawValue(event.raw)}</pre>
+                      </details>
+                    ) : null}
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">No live office chatter yet. Connect OpenClaw and the work stream will appear here.</p>
+              )}
             </div>
           </article>
 
@@ -475,15 +498,19 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
               </div>
             </div>
             <div className="channel-list">
-              {snapshot.channels.map((channel) => (
-                <article key={channel.id} className="channel-card">
-                  <div>
-                    <strong>{channel.label}</strong>
-                    <p>{channel.detail}</p>
-                  </div>
-                  <span className={joinClasses("meta-chip", `channel-${channel.status}`)}>{channel.status}</span>
-                </article>
-              ))}
+              {snapshot.channels.length ? (
+                snapshot.channels.map((channel) => (
+                  <article key={channel.id} className="channel-card">
+                    <div>
+                      <strong>{channel.label}</strong>
+                      <p>{channel.detail}</p>
+                    </div>
+                    <span className={joinClasses("meta-chip", `channel-${channel.status}`)}>{channel.status}</span>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">No external channels are surfaced yet.</p>
+              )}
             </div>
           </article>
         </section>
@@ -504,7 +531,7 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
                   <article key={task.id} className="task-card">
                     <header>
                       <TaskPill status={task.status} />
-                      <small>{formatRelativeTime(task.updatedAtMs)}</small>
+                      <small>{formatRelativeTime(task.updatedAtMs, clockNowMs)}</small>
                     </header>
                     <strong>{task.title}</strong>
                     <p>{task.summary}</p>
@@ -525,11 +552,11 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
         <section className="cards-grid">
           {snapshot.agents.map((agent) => (
             <article key={agent.id} className="panel agent-card">
-              <div className="panel-head">
-                <div>
-                  <p className="eyebrow">{agent.status === "live" ? "Live agent" : "Planned agent"}</p>
-                  <h3>{agent.name}</h3>
-                </div>
+            <div className="panel-head">
+              <div>
+                <p className="eyebrow">{agent.status === "live" ? "Live agent" : "Planned agent"}</p>
+                <h3>{agent.name}</h3>
+              </div>
                 <span className={joinClasses("meta-chip", agent.status === "live" && "meta-chip-live")}>
                   {agent.status}
                 </span>
@@ -537,18 +564,6 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
               <p className="agent-title">{agent.title}</p>
               <p>{agent.soul}</p>
               <dl className="fact-list">
-                <div>
-                  <dt>Model strategy</dt>
-                  <dd>{agent.modelStrategy}</dd>
-                </div>
-                <div>
-                  <dt>Reasoning</dt>
-                  <dd>{agent.reasoningMode}</dd>
-                </div>
-                <div>
-                  <dt>Quality bar</dt>
-                  <dd>{agent.qualityBar}</dd>
-                </div>
                 <div>
                   <dt>Current focus</dt>
                   <dd>{agent.currentFocus}</dd>
@@ -558,17 +573,27 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
                   <dd>{agent.workload}</dd>
                 </div>
                 <div>
-                  <dt>Workspace</dt>
-                  <dd>{agent.workspacePath}</dd>
+                  <dt>Quality standard</dt>
+                  <dd>{agent.qualityBar}</dd>
+                </div>
+                <div>
+                  <dt>Reasoning depth</dt>
+                  <dd>{agent.reasoningMode}</dd>
                 </div>
               </dl>
               {advancedMode ? (
                 <div className="agent-extra">
                   <p>
+                    <strong>Model strategy:</strong> {agent.modelStrategy}
+                  </p>
+                  <p>
                     <strong>Output home:</strong> {agent.outputHome}
                   </p>
                   <p>
                     <strong>Live task count:</strong> {agent.liveTasks}
+                  </p>
+                  <p>
+                    <strong>Workspace:</strong> {agent.workspacePath}
                   </p>
                 </div>
               ) : null}
@@ -676,10 +701,13 @@ export function MissionControlShell({ initialSnapshot }: { initialSnapshot: Miss
                     <li key={highlight}>{highlight}</li>
                   ))}
                 </ul>
-                <div className="path-stack">
-                  <code>{proposal.patchPath}</code>
-                  <code>{proposal.readmePath}</code>
-                </div>
+                <p className="proposal-note">Included with this project: the office patch proposal and the review guide.</p>
+                {advancedMode ? (
+                  <div className="path-stack">
+                    <code>{proposal.patchPath}</code>
+                    <code>{proposal.readmePath}</code>
+                  </div>
+                ) : null}
                 {advancedMode ? (
                   <p className="proposal-note">
                     Review-first is intentional. Reconcile this pack with your live OpenClaw config before applying

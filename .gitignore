@@ -8,3 +8,5 @@ tsconfig.tsbuildinfo
 .tmp-start.err.log
 .tmp-start.out.log
 _references
+.playwright-cli
+output/playwright
