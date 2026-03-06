@@ -12,21 +12,19 @@ export async function POST(request: Request) {
 
     const bridge = getOpenClawBridge();
     await bridge.ensureConnected();
-    const agents = (await bridge.request("agents.list", {})) as { agents?: Array<{ id?: string }> };
-    const hasNova = Array.isArray(agents.agents) && agents.agents.some((agent) => agent.id === "nova");
-    if (!hasNova) {
+    const sessionKey = bridge.mainSessionKey;
+    if (!sessionKey) {
       return Response.json(
-        { error: "Nova is not configured as a live OpenClaw agent." },
-        { status: 409 },
+        { error: "No live primary session is available from OpenClaw." },
+        { status: 503 },
       );
     }
-    const sessionKey = `agent:nova:${bridge.mainKey}`;
 
     const response = (await bridge.request("chat.send", {
       sessionKey,
       message,
       deliver: false,
-      idempotencyKey: `nova_${Date.now().toString(36)}`,
+      idempotencyKey: `primary_${Date.now().toString(36)}`,
     })) as { runId?: string; status?: string };
 
     return Response.json({

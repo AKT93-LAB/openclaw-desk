@@ -225,31 +225,29 @@ function buildAutomations(payload: unknown): DashboardAutomation[] {
 }
 
 function buildAgents(
-  liveAgentsPayload: unknown,
   configSnapshot: ReturnType<typeof parseConfigSnapshot>,
   sessions: DashboardSession[],
+  mainSessionKey?: string,
 ): DashboardAgent[] {
-  const payload = (liveAgentsPayload ?? {}) as { agents?: unknown[] };
-  const liveAgents = Array.isArray(payload.agents) ? payload.agents : [];
-  const liveMap = new Map(
-    liveAgents
-      .map((entry) => {
-        const agent = entry as { id?: string; name?: string };
-        return agent.id ? [agent.id, agent] : null;
-      })
-      .filter(Boolean) as Array<[string, { id?: string; name?: string }]>,
-  );
   const configMap = new Map(configSnapshot.agentList.map((agent) => [agent.id, agent]));
-  const ids = Array.from(new Set([...liveMap.keys(), ...configMap.keys()])).sort();
+  const liveAgentIds = new Set(
+    sessions
+      .map((session) => session.agentId)
+      .filter((agentId): agentId is string => typeof agentId === "string" && agentId.length > 0),
+  );
+  const mainAgentId = inferAgentId(mainSessionKey);
+  if (mainAgentId) {
+    liveAgentIds.add(mainAgentId);
+  }
+  const ids = Array.from(new Set([...configMap.keys(), ...liveAgentIds])).sort();
 
   return ids.map((id) => {
-    const live = liveMap.get(id);
     const config = configMap.get(id);
     const agentSessions = sessions.filter((session) => session.agentId === id);
     return {
       id,
-      name: live?.name ?? config?.name ?? id,
-      status: live ? "live" : "configured",
+      name: config?.name ?? id,
+      status: liveAgentIds.has(id) ? "live" : "configured",
       model: config?.model || "Inherited / unset",
       workspacePath: config?.workspacePath ?? "",
       agentDir: config?.agentDir ?? "",
@@ -264,20 +262,10 @@ function buildAgents(
   });
 }
 
-function pickNovaSessionKey(
-  bridge: ReturnType<typeof getOpenClawBridge>,
-  liveAgentsPayload: unknown,
-  configSnapshot: ReturnType<typeof parseConfigSnapshot>,
-) {
-  const payload = (liveAgentsPayload ?? {}) as { agents?: unknown[] };
-  const liveAgents = Array.isArray(payload.agents) ? payload.agents : [];
-  const hasNova =
-    liveAgents.some((entry) => (entry as { id?: string }).id === "nova") ||
-    configSnapshot.agentList.some((agent) => agent.id === "nova");
-
+function pickPrimarySession(bridge: ReturnType<typeof getOpenClawBridge>) {
   return {
-    available: hasNova,
-    sessionKey: hasNova ? `agent:nova:${bridge.mainKey}` : bridge.mainSessionKey,
+    available: Boolean(bridge.mainSessionKey),
+    sessionKey: bridge.mainSessionKey,
   };
 }
 
@@ -328,8 +316,7 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
     const bridge = getOpenClawBridge();
     await bridge.ensureConnected();
 
-    const [agents, sessionsPayload, cron, channels, config] = await Promise.all([
-      bridge.request("agents.list", {}),
+    const [sessionsPayload, cron, channels, config] = await Promise.all([
       bridge.request("sessions.list", {
         limit: 100,
         includeDerivedTitles: true,
@@ -346,7 +333,7 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
     ]);
 
     const configSnapshot = parseConfigSnapshot(config);
-    const nova = pickNovaSessionKey(bridge, agents, configSnapshot);
+    const nova = pickPrimarySession(bridge);
 
     let chat: unknown;
     try {
@@ -361,7 +348,7 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
     const builtSessions = buildSessions(sessionsPayload);
     const builtChannels = buildChannels(channels);
     const builtAutomations = buildAutomations(cron);
-    const builtAgents = buildAgents(agents, configSnapshot, builtSessions);
+    const builtAgents = buildAgents(configSnapshot, builtSessions, bridge.mainSessionKey);
     const officeFeed = bridge.getRecentEvents(40);
     const approvals = bridge.getPendingApprovals();
     const recentErrors = new Set(
@@ -385,7 +372,7 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
         sessionKey: nova.sessionKey,
         chatPlaceholder: nova.available
           ? "Ask Nova anything. ClawDesk will show the real work as OpenClaw performs it."
-          : "No live Nova agent is configured in OpenClaw.",
+          : "No live primary session is available in OpenClaw.",
       },
       overview: {
         openSessions: builtSessions.length,

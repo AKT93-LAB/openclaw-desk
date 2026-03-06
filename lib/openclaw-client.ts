@@ -1,3 +1,7 @@
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { createPrivateKey, randomBytes, sign } from "node:crypto";
 import JSON5 from "json5";
 import WebSocket from "ws";
 import type { DashboardApproval, MissionEvent, MissionEventKind } from "@/lib/mission-types";
@@ -42,8 +46,75 @@ type PendingRequest = {
   reject: (error: Error) => void;
 };
 
+type DeviceIdentityRecord = {
+  deviceId?: string;
+  publicKeyPem?: string;
+  privateKeyPem?: string;
+};
+
+type DeviceAuthRecord = {
+  tokens?: {
+    operator?: {
+      token?: string;
+    };
+  };
+};
+
 function createRequestId() {
   return `${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function expandHome(value: string) {
+  if (!value.startsWith("~")) {
+    return value;
+  }
+  return path.join(os.homedir(), value.slice(1).replace(/^[/\\]+/, ""));
+}
+
+function resolveOpenClawHome() {
+  const configured = process.env.OPENCLAW_HOME?.trim();
+  if (configured) {
+    return path.resolve(expandHome(configured));
+  }
+  return path.join(os.homedir(), ".openclaw");
+}
+
+function resolveIdentityDir() {
+  const configured = process.env.OPENCLAW_IDENTITY_DIR?.trim();
+  if (configured) {
+    return path.resolve(expandHome(configured));
+  }
+  return path.join(resolveOpenClawHome(), "identity");
+}
+
+async function loadDeviceOperatorAuth() {
+  const identityDir = resolveIdentityDir();
+  const identityPath = path.join(identityDir, "device.json");
+  const authPath = path.join(identityDir, "device-auth.json");
+  const [identityRaw, authRaw] = await Promise.all([
+    fs.readFile(identityPath, "utf8"),
+    fs.readFile(authPath, "utf8"),
+  ]);
+  const identity = JSON.parse(identityRaw) as DeviceIdentityRecord;
+  const auth = JSON.parse(authRaw) as DeviceAuthRecord;
+
+  const deviceId = identity.deviceId?.trim();
+  const publicKeyPem = identity.publicKeyPem?.trim();
+  const privateKeyPem = identity.privateKeyPem?.trim();
+  const operatorToken = auth.tokens?.operator?.token?.trim();
+
+  if (!deviceId || !publicKeyPem || !privateKeyPem || !operatorToken) {
+    throw new Error(
+      `OpenClaw device identity is incomplete in ${identityDir}. Expected device.json and device-auth.json with operator token.`,
+    );
+  }
+
+  return {
+    deviceId,
+    publicKeyPem,
+    privateKeyPem,
+    operatorToken,
+  };
 }
 
 function compactText(value: string | null | undefined, fallback: string) {
@@ -282,8 +353,8 @@ class OpenClawBridge {
   private pending = new Map<string, PendingRequest>();
   private listeners = new Set<(event: MissionEvent) => void>();
   private backoffMs = 1_000;
-  private connectSent = false;
   private connectNonce: string | null = null;
+  private lastConnectNonceUsed: string | null = null;
   private lastError: string | undefined;
   private recentEvents: MissionEvent[] = [];
   private approvals = new Map<string, DashboardApproval>();
@@ -292,6 +363,8 @@ class OpenClawBridge {
     private readonly url: string,
     private readonly token?: string,
     private readonly password?: string,
+    private readonly clientId = "gateway-client",
+    private readonly clientMode = "backend",
   ) {}
 
   get snapshot() {
@@ -369,8 +442,8 @@ class OpenClawBridge {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(this.url);
       this.ws = socket;
-      this.connectSent = false;
       this.connectNonce = null;
+      this.lastConnectNonceUsed = null;
 
       let settled = false;
       const settle = (fn: () => void) => {
@@ -429,34 +502,66 @@ class OpenClawBridge {
   }
 
   private async sendConnect() {
-    if (this.connectSent || !this.ws || this.ws.readyState !== WebSocket.OPEN) {
+    if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
       return;
     }
-    this.connectSent = true;
-    const auth =
-      this.token?.trim()
-        ? {
+
+    const nonce = this.connectNonce;
+    if (this.lastConnectNonceUsed === nonce) {
+      return;
+    }
+    this.lastConnectNonceUsed = nonce;
+
+    const authPayload = this.token?.trim()
+      ? {
+          auth: {
             token: this.token.trim(),
-          }
-        : this.password?.trim()
-          ? {
+          },
+        }
+      : this.password?.trim()
+        ? {
+            auth: {
               password: this.password.trim(),
-            }
-          : undefined;
+            },
+          }
+        : await (async () => {
+            const identity = await loadDeviceOperatorAuth();
+            const signedAt = Date.now();
+            const challengeNonce = this.connectNonce ?? randomBytes(16).toString("hex");
+            const payload = `${identity.deviceId}:${challengeNonce}:${signedAt}`;
+            const signature = sign(
+              null,
+              Buffer.from(payload, "utf8"),
+              createPrivateKey(identity.privateKeyPem),
+            ).toString("base64url");
+            return {
+              auth: {
+                deviceToken: identity.operatorToken,
+              },
+              device: {
+                id: identity.deviceId,
+                publicKey: identity.publicKeyPem,
+                signature,
+                signedAt,
+                nonce: challengeNonce,
+              },
+            };
+          })();
+
     const hello = await this.sendRequest<GatewayHelloOk>("connect", {
       minProtocol: 3,
       maxProtocol: 3,
       client: {
-        id: "mission-control",
+        id: this.clientId,
         version: "0.1.0",
         platform: "node",
-        mode: "webchat",
-        instanceId: "mission-control-server",
+        mode: this.clientMode,
+        instanceId: "clawdesk-server",
       },
       role: "operator",
       scopes: ["operator.admin", "operator.read", "operator.write", "operator.approvals"],
       caps: [],
-      auth,
+      ...authPayload,
       locale: "en",
     });
     this.hello = hello;
@@ -615,6 +720,8 @@ export function getOpenClawBridge() {
     url,
     process.env.OPENCLAW_GATEWAY_TOKEN?.trim() || undefined,
     process.env.OPENCLAW_GATEWAY_PASSWORD?.trim() || undefined,
+    process.env.OPENCLAW_GATEWAY_CLIENT_ID?.trim() || "gateway-client",
+    process.env.OPENCLAW_GATEWAY_CLIENT_MODE?.trim() || "backend",
   );
   return singleton;
 }

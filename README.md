@@ -93,7 +93,6 @@ To support live file editing safely, ClawDesk should run on the same VPS or PC a
 
 ClawDesk reads live OpenClaw state from the gateway using:
 
-- `agents.list`
 - `sessions.list`
 - `cron.list`
 - `channels.status`
@@ -106,6 +105,12 @@ ClawDesk performs live actions using:
 - `chat.send`
 - `exec.approval.resolve`
 - `config.patch`
+
+ClawDesk authenticates to the gateway in this order:
+
+- explicit `OPENCLAW_GATEWAY_TOKEN`
+- explicit `OPENCLAW_GATEWAY_PASSWORD`
+- OpenClaw device identity loaded from disk under `OPENCLAW_IDENTITY_DIR` or `$OPENCLAW_HOME/identity`
 
 ### Live agent editor
 
@@ -208,7 +213,7 @@ Recommended paths:
 7. Verify that ClawDesk can read live agents, sessions, cron jobs, channels, and config.
 8. Review the office pack proposal with the current OpenClaw config.
 9. Merge the office agents safely without replacing unrelated arrays.
-10. Validate that `agent:nova:main` works and that the dashboard shows live office activity.
+10. Validate that the gateway-provided `mainSessionKey` works and that the dashboard shows live office activity.
 11. Only then expose ClawDesk through the private remote-access path.
 
 ## Repo structure

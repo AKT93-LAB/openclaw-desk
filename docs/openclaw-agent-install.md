@@ -94,6 +94,9 @@ Required values:
 
 - `OPENCLAW_GATEWAY_URL`
 - either `OPENCLAW_GATEWAY_TOKEN` or `OPENCLAW_GATEWAY_PASSWORD`
+- `OPENCLAW_HOME` or `OPENCLAW_IDENTITY_DIR` if ClawDesk should auto-load device identity from a non-default location
+- `OPENCLAW_GATEWAY_CLIENT_ID` if you need to override the default `gateway-client`
+- `OPENCLAW_GATEWAY_CLIENT_MODE` if you need to override the default `backend`
 - `MISSION_CONTROL_DATA_DIR=/var/lib/clawdesk`
 - `PORT=3010`
 
@@ -110,10 +113,14 @@ Example env:
 
 ```bash
 OPENCLAW_GATEWAY_URL=ws://127.0.0.1:18789
-OPENCLAW_GATEWAY_TOKEN=<token>
+OPENCLAW_HOME=~/.openclaw
+OPENCLAW_GATEWAY_CLIENT_ID=gateway-client
+OPENCLAW_GATEWAY_CLIENT_MODE=backend
 MISSION_CONTROL_DATA_DIR=/var/lib/clawdesk
 PORT=3010
 ```
+
+If `OPENCLAW_GATEWAY_TOKEN` and `OPENCLAW_GATEWAY_PASSWORD` are both empty, ClawDesk will attempt operator auth using the OpenClaw device identity on disk.
 
 ## 4. Build and verify the app
 
@@ -208,12 +215,11 @@ ClawDesk depends on the live gateway and live local files.
 You must confirm that the following all work on the target host:
 
 - gateway connection succeeds
-- `agents.list` returns the real agent inventory
 - `sessions.list` returns active sessions
 - `cron.list` returns actual jobs
 - `channels.status` returns actual channel status
 - `config.get` returns the live config snapshot
-- `chat.history` returns the current transcript for Nova
+- `chat.history` returns the current transcript for the gateway-provided main session
 
 If any of those do not work, stop there and fix the OpenClaw side first.
 
@@ -258,10 +264,10 @@ Before any config change:
 
 ClawDesk is considered ready only when all of these are true:
 
-- `agent:nova:main` exists and responds
+- the gateway returns a valid `mainSessionKey`
 - the dashboard shows `mode: "live"`
 - the dashboard lists the real agents from OpenClaw
-- Nova chat works from the dashboard
+- primary chat works from the dashboard
 - approvals appear in the dashboard when triggered
 - office events appear in the right inspector
 - agent config edits succeed through the dashboard

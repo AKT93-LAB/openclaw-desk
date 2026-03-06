@@ -119,7 +119,8 @@ For the first rollout:
 
 Then:
 
-- confirm `agent:nova:main` responds correctly
+- confirm the gateway-provided `mainSessionKey` resolves correctly
+- if the office pack is applied, confirm `agent:nova:main` responds correctly
 - confirm Conductor can coordinate specialists
 - only then decide whether to promote Nova more broadly in your OpenClaw routing
 
@@ -156,7 +157,7 @@ The merge is acceptable only if all of these pass:
 
 - `agents.list` includes the office agents
 - each office workspace exists on disk
-- `agent:nova:main` can open a live session
+- the gateway-provided `mainSessionKey` can open a live session
 - ClawDesk shows the real office agents
 - Nova chat works from ClawDesk
 - office events appear in ClawDesk

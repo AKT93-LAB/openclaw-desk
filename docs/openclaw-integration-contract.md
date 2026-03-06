@@ -25,6 +25,15 @@ Authentication can use either:
 - `OPENCLAW_GATEWAY_TOKEN`
 - `OPENCLAW_GATEWAY_PASSWORD`
 
+If both are empty, ClawDesk attempts operator authentication from OpenClaw device identity files on disk:
+
+- `$OPENCLAW_HOME/identity/device.json`
+- `$OPENCLAW_HOME/identity/device-auth.json`
+
+Or from:
+
+- `OPENCLAW_IDENTITY_DIR`
+
 If the gateway is unreachable or not configured:
 
 - ClawDesk returns `mode: "offline"`
@@ -34,7 +43,6 @@ If the gateway is unreachable or not configured:
 
 ClawDesk currently reads live state through these gateway methods:
 
-- `agents.list`
 - `sessions.list`
 - `cron.list`
 - `channels.status`
@@ -76,8 +84,8 @@ ClawDesk assumes:
 
 ClawDesk derives the visible live team from:
 
-- `agents.list`
 - the current `config.agents.list`
+- live `sessions.list` activity
 
 That means:
 
@@ -94,18 +102,20 @@ When possible, ClawDesk infers the owning agent from session keys shaped like:
 
 If your OpenClaw runtime uses a materially different session key convention, the session-to-agent mapping may need adaptation.
 
-## Nova contract
+## Primary session contract
 
-The dashboard is chat-first and prefers a live `nova` agent.
+The dashboard is chat-first and uses the gateway-provided `mainSessionKey`.
 
 Operational expectation:
 
-- `nova` exists in OpenClaw
-- a main Nova session can be opened and used for human entry
+- OpenClaw provides a valid `mainSessionKey`
+- the main session can be opened and used for human entry
 
-If `nova` is absent:
+If your office pack routes the main session to `nova`, ClawDesk will naturally chat through Nova.
 
-- the Nova composer stays disabled
+If `mainSessionKey` is absent:
+
+- the primary composer stays disabled
 - ClawDesk does not silently reroute to a fake or invented fallback
 
 ## Workspace file contract

@@ -68,11 +68,11 @@ function expandHome(value: string) {
 function defaultWorkspacePath(agentId: string) {
   return agentId === "main"
     ? "~/.openclaw/workspace"
-    : `~/.openclaw/workspace-${agentId}`;
+    : `~/.openclaw/agents/${agentId}/workspace`;
 }
 
 function defaultAgentDir(agentId: string) {
-  return `~/.openclaw/agents/${agentId}/agent`;
+  return `~/.openclaw/agents/${agentId}`;
 }
 
 function normalizeAgentRecord(rawAgent: JsonRecord, defaults: JsonRecord, source: "list" | "defaults") {
