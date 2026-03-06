@@ -247,6 +247,8 @@ Recommended paths:
 - Keep external-effect actions approval-gated.
 - Run NDB on the same host as OpenClaw if you want live workspace file editing.
 
-## Publish note
+## Repository
 
-The local repo is ready to publish, but GitHub creation/push still depends on this machine having working GitHub authentication.
+Public GitHub repo:
+
+- [AKT93-LAB/NDB](https://github.com/AKT93-LAB/NDB)

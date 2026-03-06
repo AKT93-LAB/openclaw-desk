@@ -61,7 +61,7 @@ That proof happens on the target host during the live validation steps below.
 
 ```bash
 sudo useradd --system --create-home --home-dir /var/lib/ndb --shell /usr/sbin/nologin ndb || true
-sudo git clone <REPLACE_WITH_GITHUB_URL> /opt/ndb
+sudo git clone https://github.com/AKT93-LAB/NDB.git /opt/ndb
 sudo chown -R ndb:ndb /opt/ndb
 cd /opt/ndb
 ```
