@@ -7,6 +7,7 @@ dist
 tsconfig.tsbuildinfo
 .tmp-start.err.log
 .tmp-start.out.log
+.tmp-start*.log
 _references
 .playwright-cli
 output/playwright

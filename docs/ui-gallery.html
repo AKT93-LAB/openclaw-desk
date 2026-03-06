@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NDB UI Gallery</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #efe6d8;
+        --panel: #fffaf2;
+        --ink: #172232;
+        --muted: #617086;
+        --accent: #b9653f;
+        --line: #d7cbbc;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        background:
+          linear-gradient(135deg, rgba(185, 101, 63, 0.09), transparent 40%),
+          linear-gradient(180deg, #f3ecdf, var(--bg));
+        color: var(--ink);
+      }
+
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 32px 20px 64px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(2rem, 4vw, 3.1rem);
+      }
+
+      p {
+        margin: 0;
+      }
+
+      .lead {
+        margin-bottom: 14px;
+        color: var(--muted);
+        font-size: 1.05rem;
+      }
+
+      .note {
+        margin-bottom: 24px;
+        padding: 14px 16px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 250, 242, 0.86);
+        color: var(--muted);
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+      }
+
+      .checks {
+        margin: 0 0 24px;
+        padding: 18px 20px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 250, 242, 0.86);
+      }
+
+      .checks h2 {
+        margin: 0 0 10px;
+        font-size: 1.1rem;
+      }
+
+      .checks ul {
+        margin: 0;
+        padding-left: 20px;
+        color: var(--muted);
+      }
+
+      .checks li + li {
+        margin-top: 8px;
+      }
+
+      figure {
+        margin: 0;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: color-mix(in srgb, var(--panel) 92%, white);
+        box-shadow: 0 18px 40px rgba(23, 34, 50, 0.08);
+      }
+
+      figcaption {
+        margin-bottom: 12px;
+      }
+
+      figcaption strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 1.05rem;
+      }
+
+      figcaption span {
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 12px;
+        border: 1px solid var(--line);
+        background: white;
+      }
+
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>NDB UI Gallery</h1>
+      <p class="lead">Current screenshots from the latest strict build.</p>
+      <p class="note">
+        These are from the no-mock version. Because this local build is not connected to your live
+        OpenClaw gateway, the screenshots show the real offline state rather than invented agents or tasks.
+      </p>
+      <section class="checks">
+        <h2>Playwright checks completed</h2>
+        <ul>
+          <li>Loaded the production build at <code>http://127.0.0.1:3010</code>.</li>
+          <li>Captured the desktop shell with left navigation, main workspace, and right inspector visible.</li>
+          <li>Captured the mobile shell with both drawers closed by default.</li>
+          <li>Opened the mobile <code>Menu</code> drawer and captured it.</li>
+          <li>Opened the mobile <code>Inspector</code> drawer and captured it.</li>
+          <li>Clicked <code>Refresh</code> and confirmed a real <code>GET /api/dashboard</code> request in the network log.</li>
+        </ul>
+      </section>
+      <div class="grid">
+        <figure>
+          <figcaption>
+            <strong>Current desktop shell</strong>
+            <span>Strict offline state with visible left navigation, main workspace, and right inspector.</span>
+          </figcaption>
+          <a href="./assets/ndb-shell-desktop-current.png">
+            <img src="./assets/ndb-shell-desktop-current.png" alt="NDB current desktop shell screenshot" />
+          </a>
+        </figure>
+        <figure>
+          <figcaption>
+            <strong>Mobile main workspace</strong>
+            <span>Phone layout with both drawers closed by default.</span>
+          </figcaption>
+          <a href="./assets/ndb-shell-mobile-closed.png">
+            <img src="./assets/ndb-shell-mobile-closed.png" alt="NDB mobile shell with closed drawers" />
+          </a>
+        </figure>
+        <figure>
+          <figcaption>
+            <strong>Mobile menu drawer</strong>
+            <span>Expandable left-side navigation on phone layout.</span>
+          </figcaption>
+          <a href="./assets/ndb-shell-mobile-menu-open.png">
+            <img src="./assets/ndb-shell-mobile-menu-open.png" alt="NDB mobile menu drawer open" />
+          </a>
+        </figure>
+        <figure>
+          <figcaption>
+            <strong>Mobile inspector drawer</strong>
+            <span>Expandable right-side inspector on phone layout.</span>
+          </figcaption>
+          <a href="./assets/ndb-shell-mobile-inspector-open.png">
+            <img src="./assets/ndb-shell-mobile-inspector-open.png" alt="NDB mobile inspector drawer open" />
+          </a>
+        </figure>
+      </div>
+      <p class="note" style="margin-top: 24px;">
+        Refresh verification log:
+        <a href="./assets/refresh-network.log">refresh-network.log</a>
+      </p>
+    </main>
+  </body>
+</html>

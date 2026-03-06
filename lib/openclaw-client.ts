@@ -1,8 +1,6 @@
 import JSON5 from "json5";
 import WebSocket from "ws";
-import { agentBlueprints } from "@/lib/agent-pack";
-import type { MissionEvent, MissionEventKind } from "@/lib/mission-types";
-import { recordMissionEvent } from "@/lib/task-store";
+import type { DashboardApproval, MissionEvent, MissionEventKind } from "@/lib/mission-types";
 
 type GatewayEventFrame = {
   type: "event";
@@ -287,6 +285,8 @@ class OpenClawBridge {
   private connectSent = false;
   private connectNonce: string | null = null;
   private lastError: string | undefined;
+  private recentEvents: MissionEvent[] = [];
+  private approvals = new Map<string, DashboardApproval>();
 
   constructor(
     private readonly url: string,
@@ -317,6 +317,27 @@ class OpenClawBridge {
 
   get mainKey() {
     return this.hello?.snapshot?.sessionDefaults?.mainKey ?? "main";
+  }
+
+  getRecentEvents(limit = 40) {
+    return this.recentEvents.slice(0, limit);
+  }
+
+  getPendingApprovals() {
+    return Array.from(this.approvals.values())
+      .filter((approval) => approval.decision === "pending")
+      .sort((left, right) => right.requestedAtMs - left.requestedAtMs);
+  }
+
+  noteApprovalDecision(id: string, decision: DashboardApproval["decision"]) {
+    const approval = this.approvals.get(id);
+    if (!approval) {
+      return;
+    }
+    this.approvals.set(id, {
+      ...approval,
+      decision,
+    });
   }
 
   subscribe(listener: (event: MissionEvent) => void) {
@@ -386,10 +407,10 @@ class OpenClawBridge {
         if (!settled) {
           settle(() => reject(new Error(this.lastError)));
         } else {
-          void this.emitAndPersist({
-            id: `gateway.disconnect:${Date.now()}`,
-            kind: "gateway.disconnected",
-            ts: Date.now(),
+      void this.emitEvent({
+        id: `gateway.disconnect:${Date.now()}`,
+        kind: "gateway.disconnected",
+        ts: Date.now(),
             title: "Gateway disconnected",
             message: this.lastError,
             severity: "warn",
@@ -442,7 +463,7 @@ class OpenClawBridge {
     this.connected = true;
     this.lastError = undefined;
     this.backoffMs = 1_000;
-    await this.emitAndPersist({
+    await this.emitEvent({
       id: `gateway.connected:${Date.now()}`,
       kind: "gateway.connected",
       ts: Date.now(),
@@ -500,7 +521,7 @@ class OpenClawBridge {
         return;
       }
       const event = normalizeGatewayEvent(eventFrame);
-      void this.emitAndPersist(event);
+      void this.emitEvent(event);
       return;
     }
 
@@ -524,10 +545,44 @@ class OpenClawBridge {
     }
   }
 
-  private async emitAndPersist(event: MissionEvent) {
-    await recordMissionEvent(event);
+  private async emitEvent(event: MissionEvent) {
+    this.applyEventToCache(event);
     for (const listener of this.listeners) {
       listener(event);
+    }
+  }
+
+  private applyEventToCache(event: MissionEvent) {
+    this.recentEvents = [event, ...this.recentEvents.filter((item) => item.id !== event.id)].slice(0, 80);
+
+    if (event.kind === "approval.requested") {
+      this.approvals.set(event.id, {
+        id: event.id,
+        title: event.title,
+        detail: event.message,
+        decision: "pending",
+        requestedAtMs: event.ts,
+        runId: event.runId,
+        sessionKey: event.sessionKey,
+        agentId: event.agentId,
+      });
+      return;
+    }
+
+    if (event.kind === "approval.resolved") {
+      const approval = this.approvals.get(event.id);
+      if (!approval) {
+        return;
+      }
+      const decision = event.message.includes("allow-always")
+        ? "allow-always"
+        : event.message.includes("allow-once")
+          ? "allow-once"
+          : "deny";
+      this.approvals.set(event.id, {
+        ...approval,
+        decision,
+      });
     }
   }
 
@@ -562,8 +617,4 @@ export function getOpenClawBridge() {
     process.env.OPENCLAW_GATEWAY_PASSWORD?.trim() || undefined,
   );
   return singleton;
-}
-
-export function getKnownOfficeAgentIds() {
-  return new Set(agentBlueprints.map((agent) => agent.id));
 }

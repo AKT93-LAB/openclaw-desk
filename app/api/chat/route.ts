@@ -1,5 +1,4 @@
 import { getOpenClawBridge } from "@/lib/openclaw-client";
-import { createTaskFromChat, linkTaskToRun } from "@/lib/task-store";
 
 export const runtime = "nodejs";
 
@@ -15,12 +14,13 @@ export async function POST(request: Request) {
     await bridge.ensureConnected();
     const agents = (await bridge.request("agents.list", {})) as { agents?: Array<{ id?: string }> };
     const hasNova = Array.isArray(agents.agents) && agents.agents.some((agent) => agent.id === "nova");
-    const sessionKey = hasNova ? `agent:nova:${bridge.mainKey}` : bridge.mainSessionKey;
-    const task = await createTaskFromChat({
-      sessionKey,
-      message,
-      ownerAgentId: "nova",
-    });
+    if (!hasNova) {
+      return Response.json(
+        { error: "Nova is not configured as a live OpenClaw agent." },
+        { status: 409 },
+      );
+    }
+    const sessionKey = `agent:nova:${bridge.mainKey}`;
 
     const response = (await bridge.request("chat.send", {
       sessionKey,
@@ -29,13 +29,8 @@ export async function POST(request: Request) {
       idempotencyKey: `nova_${Date.now().toString(36)}`,
     })) as { runId?: string; status?: string };
 
-    if (response.runId) {
-      await linkTaskToRun(task.id, response.runId);
-    }
-
     return Response.json({
       ok: true,
-      taskId: task.id,
       runId: response.runId,
       status: response.status ?? "started",
     });

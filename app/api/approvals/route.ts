@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       id: body.id,
       decision: body.decision,
     });
+    bridge.noteApprovalDecision(body.id, body.decision);
     return Response.json({ ok: true });
   } catch (error) {
     return Response.json(
@@ -26,4 +27,3 @@ export async function POST(request: Request) {
     );
   }
 }
-

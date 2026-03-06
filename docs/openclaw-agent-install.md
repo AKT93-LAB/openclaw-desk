@@ -1,61 +1,86 @@
 # NDB Install and Hosting Guide
 
-This guide is for the OpenClaw agent or operator who will install and host NDB on the VPS.
+This guide is written for the OpenClaw agent or operator who will install NDB on the same VPS or PC as OpenClaw.
 
-## Goal
+## Outcome
 
-Install and host `NDB` (Nova Dashboard) on the same VPS as OpenClaw, keep it reachable through the existing Tailgate/Tailscale path, and prepare the proposed OpenClaw multi-agent office upgrade without blindly overwriting the current config.
+At the end of this runbook, all of these should be true:
 
-## What has already been verified
+- NDB is installed under `/opt/ndb`
+- NDB runs as a long-lived service on `127.0.0.1:3010`
+- NDB can reach the live OpenClaw gateway
+- `GET /api/dashboard` returns `mode: "live"`
+- the dashboard shows real agents, sessions, approvals, automations, and config
+- the proposed office pack has been reviewed for merge, not blindly applied
 
-Local verification completed on March 6, 2026:
+## Prerequisites
+
+- NDB and OpenClaw run on the same host
+- Node 22+ is installed
+- the OpenClaw gateway is reachable locally
+- a working OpenClaw gateway credential is available
+- the operator can review and merge OpenClaw config safely
+
+Recommended:
+
+- Node 24 LTS
+- a dedicated service user such as `ndb`
+- private access through Tailgate / Tailscale / reverse proxy
+
+## Verified app state before VPS install
+
+This repo has already been verified locally on March 6, 2026:
 
 - `npm install`
 - `npm run typecheck`
 - `npm run build`
-- `npm run start`
+- production start
 - `GET /`
 - `GET /api/dashboard`
+- Playwright verification of shell and mobile drawers
 
-The app serves correctly in demo mode when the OpenClaw gateway is not configured, and is ready to switch to live mode once the gateway URL and credentials are provided.
+What is **not** yet proved from this repo alone:
+
+- your real gateway URL and credential
+- your real OpenClaw agent list
+- your real workspace paths
+- your real approvals flow
+
+That proof happens on the target host during the live validation steps below.
 
 ## Recommended production layout
 
-Use these paths unless you already have a better standard:
-
-- Repo checkout: `/opt/ndb`
-- Runtime data: `/var/lib/ndb`
-- Env file: `/etc/ndb/ndb.env`
-- Port: `3010`
-- Bind address: `127.0.0.1`
-- Service user: `ndb`
-
-## Node runtime
-
-Recommended: Node 24 LTS.
-
-Minimum supported by this repo: Node 22+.
-
-The repo includes `.nvmrc` with `24`.
+- repo checkout: `/opt/ndb`
+- env file: `/etc/ndb/ndb.env`
+- runtime data: `/var/lib/ndb`
+- service user: `ndb`
+- host bind: `127.0.0.1`
+- port: `3010`
 
 ## 1. Clone the repo
-
-If the repo has already been created on GitHub:
 
 ```bash
 sudo useradd --system --create-home --home-dir /var/lib/ndb --shell /usr/sbin/nologin ndb || true
 sudo git clone <REPLACE_WITH_GITHUB_URL> /opt/ndb
-cd /opt/ndb
 sudo chown -R ndb:ndb /opt/ndb
+cd /opt/ndb
+```
+
+If the repo is already present:
+
+```bash
+cd /opt/ndb
+git pull --ff-only
 ```
 
 ## 2. Install dependencies
 
 ```bash
+cd /opt/ndb
 npm ci
 ```
 
-If `npm ci` fails because there is no lockfile sync, use:
+If `npm ci` fails because the lockfile is out of sync:
 
 ```bash
 npm install
@@ -63,24 +88,34 @@ npm install
 
 ## 3. Create the environment file
 
-Create `/etc/ndb/ndb.env` from [`deploy/ndb.env.example`](../deploy/ndb.env.example) and set:
+Use [deploy/ndb.env.example](../deploy/ndb.env.example) as the template.
+
+Required values:
 
 - `OPENCLAW_GATEWAY_URL`
-- `OPENCLAW_GATEWAY_TOKEN` or `OPENCLAW_GATEWAY_PASSWORD`
+- either `OPENCLAW_GATEWAY_TOKEN` or `OPENCLAW_GATEWAY_PASSWORD`
 - `MISSION_CONTROL_DATA_DIR=/var/lib/ndb`
 - `PORT=3010`
 
 Example:
 
 ```bash
-sudo mkdir -p /etc/ndb
+sudo mkdir -p /etc/ndb /var/lib/ndb
 sudo cp deploy/ndb.env.example /etc/ndb/ndb.env
-sudo nano /etc/ndb/ndb.env
-sudo mkdir -p /var/lib/ndb
 sudo chown -R ndb:ndb /var/lib/ndb
+sudo nano /etc/ndb/ndb.env
 ```
 
-## 4. Build the app
+Example env:
+
+```bash
+OPENCLAW_GATEWAY_URL=ws://127.0.0.1:18789
+OPENCLAW_GATEWAY_TOKEN=<token>
+MISSION_CONTROL_DATA_DIR=/var/lib/ndb
+PORT=3010
+```
+
+## 4. Build and verify the app
 
 ```bash
 cd /opt/ndb
@@ -88,13 +123,14 @@ npm run typecheck
 npm run build
 ```
 
-Expected result:
+Expected:
 
 - typecheck passes
 - build passes
-- warnings about dynamic file matching are acceptable for now and are not build blockers
 
-## 5. Smoke-test before service install
+## 5. Smoke-test before installing the service
+
+Load env values and start NDB:
 
 ```bash
 cd /opt/ndb
@@ -115,14 +151,17 @@ Expected:
 
 - `/` returns `200 OK`
 - `/api/dashboard` returns JSON
-- `mode` is `live` if the gateway credentials work
-- `mode` is `demo` if the gateway is still not configured
+
+Interpret the result correctly:
+
+- `mode: "offline"` means NDB is working but not yet connected to OpenClaw
+- `mode: "live"` means the gateway connection is working
+
+NDB must **not** fabricate a fake office state when offline.
 
 ## 6. Install the systemd service
 
-Copy [`deploy/systemd/ndb.service`](../deploy/systemd/ndb.service) to `/etc/systemd/system/ndb.service`.
-
-Then:
+Use [deploy/systemd/ndb.service](../deploy/systemd/ndb.service).
 
 ```bash
 sudo cp deploy/systemd/ndb.service /etc/systemd/system/ndb.service
@@ -130,6 +169,8 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now ndb
 sudo systemctl status ndb
 ```
+
+If `npm` is not located at `/usr/bin/npm` on that host, adjust `ExecStart` in the service file before enabling it.
 
 ## 7. Verify the running service
 
@@ -139,99 +180,116 @@ curl http://127.0.0.1:3010/api/dashboard
 bash deploy/scripts/smoke-check.sh
 ```
 
-Useful logs:
+Logs:
 
 ```bash
 sudo journalctl -u ndb -f
 ```
 
-## 8. Tailgate / Tailscale exposure
+## 8. Expose NDB through private access only
 
 Recommended:
 
 - keep NDB bound to `127.0.0.1`
-- expose it through the existing private access layer you already use for OpenClaw
-
-If you already have a reverse proxy or Tailgate/Tailscale Serve path, point it at:
-
-- upstream: `http://127.0.0.1:3010`
+- expose it only through the existing private access layer
 
 Optional Nginx example:
 
-- [`deploy/nginx/ndb.conf`](../deploy/nginx/ndb.conf)
+- [deploy/nginx/ndb.conf](../deploy/nginx/ndb.conf)
 
-## 9. OpenClaw office upgrade
+If you already use Tailgate / Tailscale Serve / reverse proxy, point it at:
 
-Do not apply the office patch blindly.
+- upstream `http://127.0.0.1:3010`
 
-The proposal files are:
+## 9. Connect NDB to the real OpenClaw host state
 
-- [`openclaw/agent-pack/README.md`](../openclaw/agent-pack/README.md)
-- [`openclaw/agent-pack/openclaw-office.patch.json5`](../openclaw/agent-pack/openclaw-office.patch.json5)
+NDB depends on the live gateway and live local files.
 
-Before any OpenClaw config change:
+You must confirm that the following all work on the target host:
 
-1. Review the current live config.
-2. Preserve all existing agents, bindings, channels, hooks, and model refs.
-3. Replace the placeholder workspace path in the proposal with `/opt/ndb/openclaw/agent-pack/workspaces/...`
-4. Replace `ollama/qwen3.5:4b` if the actual working local model ref on the VPS is named differently.
+- gateway connection succeeds
+- `agents.list` returns the real agent inventory
+- `sessions.list` returns active sessions
+- `cron.list` returns actual jobs
+- `channels.status` returns actual channel status
+- `config.get` returns the live config snapshot
+- `chat.history` returns the current transcript for Nova
 
-## Important config warning
+If any of those do not work, stop there and fix the OpenClaw side first.
 
-OpenClaw `config.patch` uses merge semantics where arrays replace.
+## 10. Review the office pack before changing OpenClaw
 
-That means:
+Read:
 
-- `agents.list` can be overwritten if patched carelessly
-- `bindings` can be overwritten if patched carelessly
+- [openclaw/agent-pack/README.md](../openclaw/agent-pack/README.md)
+- [openclaw/agent-pack/openclaw-office.patch.json5](../openclaw/agent-pack/openclaw-office.patch.json5)
+- [docs/openclaw-agent-config-merge.md](./openclaw-agent-config-merge.md)
+- [docs/openclaw-integration-contract.md](./openclaw-integration-contract.md)
 
-So:
+Do **not** call `config.patch` with the office patch file directly.
 
-- do not call `config.patch` with the proposal file directly
-- merge the proposal into a reviewed full config first
-- then apply the merged full config with `config.apply` or equivalent reviewed tooling
+## 11. Stage the office workspaces
 
-## Recommended OpenClaw merge procedure
+Copy the proposed workspaces into a stable location on the same host:
 
-1. Export current config and keep a backup.
-2. Copy NDB's `openclaw/agent-pack/workspaces/` to `/opt/ndb/openclaw/agent-pack/workspaces/`.
-3. Manually merge only the intended office additions into the current OpenClaw config.
-4. Keep current bindings unchanged on the first pass.
-5. Add the office agents without forcing Nova to be the default external entry yet.
-6. Validate each office agent exists and can open a session.
-7. Only after validation, decide whether to route default human entry through `nova`.
+```bash
+cd /opt/ndb
+ls openclaw/agent-pack/workspaces
+```
 
-## Minimum expected OpenClaw changes
+Recommended live path:
 
-- Add `nova`, `conductor`, `research`, `builder`, `reviewer`, `writer`, `automation`, and `ops` to `agents.list`
-- Point each agent workspace to `/opt/ndb/openclaw/agent-pack/workspaces/<agent-id>`
-- Enable controlled cross-agent session work
-- Keep external-effect actions approval-gated
-- Use heartbeats only for `conductor`, `automation`, and `ops`
-- Keep heartbeat delivery internal only
+- `/opt/ndb/openclaw/agent-pack/workspaces/<agent-id>`
 
-## Validation after OpenClaw changes
+These paths must match whatever is placed in the reviewed OpenClaw config.
 
-The office upgrade is ready only when all of these are true:
+## 12. Merge OpenClaw config safely
+
+Before any config change:
+
+1. export the current OpenClaw config and back it up
+2. preserve current channels, bindings, hooks, and models
+3. merge the office agents into `agents.list` carefully
+4. customize workspace paths
+5. customize the actual local Ollama model ref if it differs from `ollama/qwen3.5:4b`
+6. keep external-effect actions approval-gated
+
+## 13. Validate the office setup live
+
+NDB is considered ready only when all of these are true:
 
 - `agent:nova:main` exists and responds
-- dashboard `/api/dashboard` shows `mode: live`
-- dashboard lists the office agents
-- approvals can be surfaced in the dashboard
-- office feed updates when OpenClaw emits events
-- Nova chat in the dashboard reaches the intended session
+- the dashboard shows `mode: "live"`
+- the dashboard lists the real agents from OpenClaw
+- Nova chat works from the dashboard
+- approvals appear in the dashboard when triggered
+- office events appear in the right inspector
+- agent config edits succeed through the dashboard
+- workspace file edits succeed through the dashboard
 
-## Quick rollback
+## 14. Use the UI proof set
 
-If deployment fails:
+Current verified UI captures are in:
 
-1. Stop the `ndb` service
-2. revert to the previous OpenClaw config backup
-3. keep the repo checkout in place for debugging
+- [docs/ui-gallery.html](./ui-gallery.html)
+- [docs/ndb-presentation.html](./ndb-presentation.html)
 
-## Files to use
+These are useful for confirming the intended shell behavior before the live gateway is connected.
 
-- service: [`deploy/systemd/ndb.service`](../deploy/systemd/ndb.service)
-- env template: [`deploy/ndb.env.example`](../deploy/ndb.env.example)
-- nginx example: [`deploy/nginx/ndb.conf`](../deploy/nginx/ndb.conf)
-- smoke test: [`deploy/scripts/smoke-check.sh`](../deploy/scripts/smoke-check.sh)
+## 15. Rollback
+
+If any live validation fails:
+
+1. stop the `ndb` service
+2. restore the previous OpenClaw config backup
+3. keep the NDB checkout for debugging
+
+## Files in this repo that matter most during install
+
+- [README.md](../README.md)
+- [deploy/ndb.env.example](../deploy/ndb.env.example)
+- [deploy/systemd/ndb.service](../deploy/systemd/ndb.service)
+- [deploy/nginx/ndb.conf](../deploy/nginx/ndb.conf)
+- [deploy/scripts/smoke-check.sh](../deploy/scripts/smoke-check.sh)
+- [docs/openclaw-agent-config-merge.md](./openclaw-agent-config-merge.md)
+- [docs/openclaw-integration-contract.md](./openclaw-integration-contract.md)

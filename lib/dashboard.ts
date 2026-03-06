@@ -1,5 +1,5 @@
 import JSON5 from "json5";
-import { getAgentPackManifest } from "@/lib/agent-pack";
+import { parseConfigSnapshot } from "@/lib/openclaw-config";
 import { getOpenClawBridge } from "@/lib/openclaw-client";
 import type {
   ChatTranscriptItem,
@@ -7,11 +7,10 @@ import type {
   DashboardAgent,
   DashboardAutomation,
   DashboardChannel,
-  DashboardTask,
+  DashboardSession,
   MissionSnapshot,
   SettingsSummaryItem,
 } from "@/lib/mission-types";
-import { listRecentMissionEvents, listStoredApprovals, listStoredTasks } from "@/lib/task-store";
 
 function compactText(value: string | null | undefined, fallback: string) {
   if (!value) {
@@ -19,6 +18,14 @@ function compactText(value: string | null | undefined, fallback: string) {
   }
   const normalized = value.replace(/\s+/g, " ").trim();
   return normalized || fallback;
+}
+
+function inferAgentId(sessionKey?: string) {
+  if (!sessionKey) {
+    return undefined;
+  }
+  const match = /^agent:([^:]+):/.exec(sessionKey.trim());
+  return match?.[1];
 }
 
 function extractTextFromContent(value: unknown) {
@@ -52,139 +59,98 @@ function normalizeTranscriptRole(role: unknown): ChatTranscriptRole {
 function toChatTranscript(payload: unknown): ChatTranscriptItem[] {
   const record = payload as { messages?: unknown[] } | unknown[];
   const messages = Array.isArray(record) ? record : Array.isArray(record?.messages) ? record.messages : [];
-  const transcript: ChatTranscriptItem[] = [];
-  messages.forEach((message, index) => {
-    const entry = message as {
-      id?: string;
-      role?: string;
-      content?: unknown;
-      text?: string;
-      timestamp?: number;
-      runId?: string;
-    };
-    transcript.push({
-      id: entry.id ?? `history_${index}`,
-      role: normalizeTranscriptRole(entry.role),
-      text: compactText(entry.text ?? extractTextFromContent(entry.content), "No transcript text."),
-      timestamp: typeof entry.timestamp === "number" ? entry.timestamp : Date.now(),
-      runId: entry.runId,
-    });
-  });
-  return transcript.filter((message) => Boolean(message.text));
+  return messages
+    .map((message, index) => {
+      const entry = message as {
+        id?: string;
+        role?: string;
+        content?: unknown;
+        text?: string;
+        timestamp?: number;
+        runId?: string;
+      };
+      return {
+        id: entry.id ?? `history_${index}`,
+        role: normalizeTranscriptRole(entry.role),
+        text: compactText(entry.text ?? extractTextFromContent(entry.content), ""),
+        timestamp: typeof entry.timestamp === "number" ? entry.timestamp : Date.now(),
+        runId: entry.runId,
+      };
+    })
+    .filter((message) => Boolean(message.text));
 }
 
-function deriveAmbientTasks(sessionsPayload: unknown): DashboardTask[] {
-  const payload = sessionsPayload as { sessions?: unknown[] } | undefined;
-  const sessions = Array.isArray(payload?.sessions) ? payload.sessions : [];
-  return sessions.slice(0, 6).map((session, index) => {
+function buildSessions(payload: unknown): DashboardSession[] {
+  const snapshot = (payload ?? {}) as { sessions?: unknown[] };
+  const sessions = Array.isArray(snapshot.sessions) ? snapshot.sessions : [];
+  return sessions.slice(0, 48).map((session, index) => {
     const entry = session as {
       key?: string;
       derivedTitle?: string;
       displayName?: string;
       lastMessagePreview?: string;
       updatedAt?: number | null;
+      state?: string;
+      runState?: string;
+      status?: string;
     };
-    const key = entry.key ?? `ambient_${index}`;
+    const key = entry.key ?? `session_${index}`;
     return {
-      id: `ambient_${key.replace(/[^a-z0-9:_-]+/gi, "_")}`,
-      title: compactText(entry.derivedTitle ?? entry.displayName, "OpenClaw session"),
-      summary: compactText(entry.lastMessagePreview, "Session activity observed from OpenClaw."),
-      status: "doing",
-      source: "ambient-session",
-      sessionKey: entry.key,
-      needsApproval: false,
-      blockers: [],
-      missing: [],
-      completed: [],
-      nextStep: "Open the session and inspect recent activity.",
-      createdAtMs: typeof entry.updatedAt === "number" ? entry.updatedAt : Date.now(),
-      updatedAtMs: typeof entry.updatedAt === "number" ? entry.updatedAt : Date.now(),
-      lastEvent: "Imported from live sessions.",
+      id: key,
+      key,
+      title: compactText(entry.derivedTitle ?? entry.displayName ?? entry.key, "OpenClaw session"),
+      summary: compactText(entry.lastMessagePreview, "No recent preview returned by OpenClaw."),
+      agentId: inferAgentId(key),
+      stateLabel: compactText(entry.state ?? entry.runState ?? entry.status, "Session"),
+      lastActiveAtMs: typeof entry.updatedAt === "number" ? entry.updatedAt : undefined,
     };
   });
 }
 
-function buildSettingsSummary(configPayload: unknown, channelCount: number): SettingsSummaryItem[] {
-  const snapshot = (configPayload ?? {}) as {
-    raw?: string | null;
-    config?: Record<string, unknown> | null;
-    valid?: boolean | null;
-  };
-  const config =
-    snapshot.config ??
-    (() => {
-      if (!snapshot.raw) {
-        return {};
-      }
-      try {
-        return JSON5.parse(snapshot.raw) as Record<string, unknown>;
-      } catch {
-        return {};
-      }
-    })();
-
-  const agentsConfig = (config.agents ?? {}) as {
-    list?: unknown[];
-    defaults?: {
-      heartbeat?: { every?: string };
-      sandbox?: { mode?: string };
-    };
-  };
+function buildSettingsSummary(
+  configSnapshot: ReturnType<typeof parseConfigSnapshot>,
+  channelCount: number,
+): SettingsSummaryItem[] {
+  const config = configSnapshot.config;
   const tools = (config.tools ?? {}) as {
     profile?: string;
     sessions?: { visibility?: string };
     agentToAgent?: { enabled?: boolean };
   };
-  const agentCount = Array.isArray(agentsConfig.list) ? agentsConfig.list.length : 0;
+  const agentCount = configSnapshot.agentList.length;
 
   return [
     {
       id: "config-valid",
       label: "Config health",
-      current: snapshot.valid === false ? "Needs attention" : "Valid",
-      recommendation: "Keep changes review-first and hash-guarded.",
+      current: configSnapshot.valid ? "Valid" : "Needs attention",
+      recommendation: "Edits in this dashboard write back through OpenClaw config.patch.",
     },
     {
       id: "agent-count",
       label: "Configured agents",
-      current: agentCount ? `${agentCount} configured` : "Single-agent or unset",
-      recommendation: "Adopt the office pack for clear ownership lanes.",
+      current: `${agentCount} found`,
+      recommendation: "This count comes from the live OpenClaw config.",
     },
     {
       id: "tool-profile",
-      label: "Tool posture",
-      current: tools.profile ? `Profile: ${tools.profile}` : "Custom or unrestricted",
-      recommendation: "Use explicit per-agent guardrails for specialist lanes.",
+      label: "Tool profile",
+      current: tools.profile ? tools.profile : "Custom or unset",
     },
     {
       id: "session-visibility",
       label: "Session visibility",
       current: tools.sessions?.visibility ?? "tree",
-      recommendation: "Use all only for controlled office routing.",
     },
     {
       id: "agent-to-agent",
       label: "Cross-agent comms",
       current: tools.agentToAgent?.enabled ? "Enabled" : "Disabled",
-      recommendation: "Enable only for the office agents and document the protocol.",
-    },
-    {
-      id: "heartbeat",
-      label: "Heartbeat cadence",
-      current: agentsConfig.defaults?.heartbeat?.every ?? "Not configured",
-      recommendation: "Use heartbeat for office continuity and light checks.",
-    },
-    {
-      id: "sandbox",
-      label: "Sandbox mode",
-      current: agentsConfig.defaults?.sandbox?.mode ?? "Not configured",
-      recommendation: "Non-main sandboxing is the sane default for shared surfaces.",
     },
     {
       id: "channels",
-      label: "Channel footprint",
-      current: `${channelCount} surfaced`,
-      recommendation: "Keep external delivery approval-gated.",
+      label: "Connected channels",
+      current: `${channelCount}`,
     },
   ];
 }
@@ -213,7 +179,7 @@ function buildChannels(payload: unknown): DashboardChannel[] {
         ? "Channel is reachable."
         : configured
           ? "Configured but not connected."
-          : "Not configured in the surfaced snapshot.",
+          : "Not configured in the live snapshot.",
     };
   });
 }
@@ -221,7 +187,7 @@ function buildChannels(payload: unknown): DashboardChannel[] {
 function buildAutomations(payload: unknown): DashboardAutomation[] {
   const snapshot = (payload ?? {}) as { jobs?: unknown[] };
   const jobs = Array.isArray(snapshot.jobs) ? snapshot.jobs : [];
-  return jobs.slice(0, 12).map((job, index) => {
+  return jobs.slice(0, 24).map((job, index) => {
     const entry = job as {
       id?: string;
       name?: string;
@@ -247,7 +213,7 @@ function buildAutomations(payload: unknown): DashboardAutomation[] {
     return {
       id: entry.id ?? `job_${index}`,
       name: entry.name ?? "Automation",
-      summary: status === "warning" ? "Recent run needs review." : "Automation is standing by.",
+      summary: status === "warning" ? "Recent run needs review." : "Automation is ready.",
       enabled: entry.enabled !== false,
       status,
       schedule,
@@ -260,109 +226,100 @@ function buildAutomations(payload: unknown): DashboardAutomation[] {
 
 function buildAgents(
   liveAgentsPayload: unknown,
-  tasks: DashboardTask[],
-  pack: ReturnType<typeof getAgentPackManifest>,
+  configSnapshot: ReturnType<typeof parseConfigSnapshot>,
+  sessions: DashboardSession[],
 ): DashboardAgent[] {
   const payload = (liveAgentsPayload ?? {}) as { agents?: unknown[] };
   const liveAgents = Array.isArray(payload.agents) ? payload.agents : [];
-  return pack.agents.map((agent) => {
-    const live = liveAgents.find((entry) => {
-      const item = entry as { id?: string };
-      return item.id === agent.id;
-    }) as { id?: string; name?: string } | undefined;
-    const liveTaskCount = tasks.filter(
-      (task) => task.ownerAgentId === agent.id || task.sessionKey?.startsWith(`agent:${agent.id}:`),
-    ).length;
+  const liveMap = new Map(
+    liveAgents
+      .map((entry) => {
+        const agent = entry as { id?: string; name?: string };
+        return agent.id ? [agent.id, agent] : null;
+      })
+      .filter(Boolean) as Array<[string, { id?: string; name?: string }]>,
+  );
+  const configMap = new Map(configSnapshot.agentList.map((agent) => [agent.id, agent]));
+  const ids = Array.from(new Set([...liveMap.keys(), ...configMap.keys()])).sort();
+
+  return ids.map((id) => {
+    const live = liveMap.get(id);
+    const config = configMap.get(id);
+    const agentSessions = sessions.filter((session) => session.agentId === id);
     return {
-      id: agent.id,
-      name: live?.name ?? agent.name,
-      title: agent.title,
-      soul: agent.soul,
-      status: live ? "live" : "planned",
-      modelStrategy: agent.modelStrategy,
-      reasoningMode: agent.reasoningMode,
-      qualityBar: agent.qualityBar,
-      currentFocus:
-        tasks.find((task) => task.ownerAgentId === agent.id)?.title ??
-        (live ? "Live in the office." : "Awaiting configuration."),
-      workload: liveTaskCount ? `${liveTaskCount} active items` : live ? "Standing by" : "Proposed only",
-      liveTasks: liveTaskCount,
-      outputHome: agent.outputHome,
-      workspacePath: agent.workspacePath,
+      id,
+      name: live?.name ?? config?.name ?? id,
+      status: live ? "live" : "configured",
+      model: config?.model || "Inherited / unset",
+      workspacePath: config?.workspacePath ?? "",
+      agentDir: config?.agentDir ?? "",
+      heartbeatEvery: config?.heartbeatEvery || undefined,
+      sandboxMode: config?.sandboxMode || undefined,
+      identityName: config?.identityName || undefined,
+      identityTheme: config?.identityTheme || undefined,
+      identityEmoji: config?.identityEmoji || undefined,
+      sessionCount: agentSessions.length,
+      lastSessionTitle: agentSessions[0]?.title,
     };
   });
 }
 
-function pickNovaSessionKey(bridge: ReturnType<typeof getOpenClawBridge>, liveAgentsPayload: unknown) {
+function pickNovaSessionKey(
+  bridge: ReturnType<typeof getOpenClawBridge>,
+  liveAgentsPayload: unknown,
+  configSnapshot: ReturnType<typeof parseConfigSnapshot>,
+) {
   const payload = (liveAgentsPayload ?? {}) as { agents?: unknown[] };
-  const agents = Array.isArray(payload.agents) ? payload.agents : [];
-  const hasNova = agents.some((agent) => {
-    const entry = agent as { id?: string };
-    return entry.id === "nova";
-  });
-  return hasNova ? `agent:nova:${bridge.mainKey}` : bridge.mainSessionKey;
+  const liveAgents = Array.isArray(payload.agents) ? payload.agents : [];
+  const hasNova =
+    liveAgents.some((entry) => (entry as { id?: string }).id === "nova") ||
+    configSnapshot.agentList.some((agent) => agent.id === "nova");
+
+  return {
+    available: hasNova,
+    sessionKey: hasNova ? `agent:nova:${bridge.mainKey}` : bridge.mainSessionKey,
+  };
 }
 
-function buildDemoSnapshot(errorMessage: string): MissionSnapshot {
-  const pack = getAgentPackManifest();
+function buildOfflineSnapshot(errorMessage: string): MissionSnapshot {
   return {
-    mode: "demo",
+    mode: "offline",
     generatedAtMs: Date.now(),
     connection: {
-      mode: "demo",
+      mode: "offline",
       connected: false,
       gatewayUrl: process.env.OPENCLAW_GATEWAY_URL ?? "unset",
       lastError: errorMessage,
     },
     nova: {
-      sessionKey: "agent:nova:main",
-      chatPlaceholder: "Connect Mission Control to OpenClaw to chat with Nova.",
+      available: false,
+      sessionKey: "unavailable",
+      chatPlaceholder: "Connect Mission Control to the OpenClaw gateway first.",
     },
     overview: {
-      activeTasks: 0,
+      openSessions: 0,
       waitingForYou: 0,
-      blockedTasks: 0,
+      recentErrors: 0,
       liveAgents: 0,
       readyAutomations: 0,
       connectedChannels: 0,
     },
-    tasks: [],
+    sessions: [],
     approvals: [],
     automations: [],
     channels: [],
-    agents: buildAgents({ agents: [] }, [], pack),
+    agents: [],
     settings: [
       {
-        id: "connection",
+        id: "gateway",
         label: "Gateway connection",
-        current: "Unavailable",
-        recommendation: "Set OPENCLAW_GATEWAY_URL and credentials.",
+        current: "Offline",
+        recommendation:
+          "Set OPENCLAW_GATEWAY_URL and gateway credentials. The dashboard will stay empty until it can read live OpenClaw state.",
       },
     ],
     officeFeed: [],
-    chat: [
-      {
-        id: "demo_chat_1",
-        role: "system",
-        text: "Mission Control is waiting for a live OpenClaw gateway connection.",
-        timestamp: Date.now(),
-      },
-    ],
-    proposals: [
-      {
-        id: "office-pack",
-        title: "Enterprise office pack",
-        summary: "Nova, Conductor, and specialist workspaces are ready for review.",
-        status: "ready",
-        patchPath: pack.patchPath,
-        readmePath: pack.readmePath,
-        highlights: [
-          "Conductor orchestrates via cross-agent sessions instead of brittle nested spawn chains.",
-          "Each specialist has a dedicated identity, quality bar, and output contract.",
-          "The patch is designed as a proposal, not a blind live mutation.",
-        ],
-      },
-    ],
+    chat: [],
   };
 }
 
@@ -371,53 +328,47 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
     const bridge = getOpenClawBridge();
     await bridge.ensureConnected();
 
-    const [agents, sessions, cron, channels, config, tasks, approvals, officeFeed] =
-      await Promise.all([
-        bridge.request("agents.list", {}),
-        bridge.request("sessions.list", {
-          limit: 100,
-          includeDerivedTitles: true,
-          includeLastMessage: true,
-        }),
-        bridge.request("cron.list", {
-          limit: 50,
-          enabled: "all",
-          sortBy: "nextRunAtMs",
-          sortDir: "asc",
-        }),
-        bridge.request("channels.status", {}),
-        bridge.request("config.get", {}),
-        listStoredTasks(),
-        listStoredApprovals(),
-        listRecentMissionEvents(40),
-      ]);
-    let sessionKey = pickNovaSessionKey(bridge, agents);
+    const [agents, sessionsPayload, cron, channels, config] = await Promise.all([
+      bridge.request("agents.list", {}),
+      bridge.request("sessions.list", {
+        limit: 100,
+        includeDerivedTitles: true,
+        includeLastMessage: true,
+      }),
+      bridge.request("cron.list", {
+        limit: 50,
+        enabled: "all",
+        sortBy: "nextRunAtMs",
+        sortDir: "asc",
+      }),
+      bridge.request("channels.status", {}),
+      bridge.request("config.get", {}),
+    ]);
+
+    const configSnapshot = parseConfigSnapshot(config);
+    const nova = pickNovaSessionKey(bridge, agents, configSnapshot);
+
     let chat: unknown;
     try {
       chat = await bridge.request("chat.history", {
-        sessionKey,
+        sessionKey: nova.sessionKey,
         limit: 30,
       });
     } catch {
-      sessionKey = bridge.mainSessionKey;
-      try {
-        chat = await bridge.request("chat.history", {
-          sessionKey,
-          limit: 30,
-        });
-      } catch {
-        chat = { messages: [] };
-      }
+      chat = { messages: [] };
     }
 
-    const pack = getAgentPackManifest();
-    const ambientTasks = tasks.length ? [] : deriveAmbientTasks(sessions);
-    const effectiveTasks = tasks.length ? tasks : ambientTasks;
-    const effectiveChannels = buildChannels(channels);
-    const effectiveAutomations = buildAutomations(cron);
-    const effectiveAgents = buildAgents(agents, effectiveTasks, pack);
-    const effectiveChat = toChatTranscript(chat);
-    const settings = buildSettingsSummary(config, effectiveChannels.length);
+    const builtSessions = buildSessions(sessionsPayload);
+    const builtChannels = buildChannels(channels);
+    const builtAutomations = buildAutomations(cron);
+    const builtAgents = buildAgents(agents, configSnapshot, builtSessions);
+    const officeFeed = bridge.getRecentEvents(40);
+    const approvals = bridge.getPendingApprovals();
+    const recentErrors = new Set(
+      officeFeed
+        .filter((event) => event.severity === "error")
+        .map((event) => event.runId ?? event.id),
+    ).size;
 
     return {
       mode: "live",
@@ -430,43 +381,31 @@ export async function getMissionControlSnapshot(): Promise<MissionSnapshot> {
         lastError: bridge.connectionState.lastError,
       },
       nova: {
-        sessionKey,
-        chatPlaceholder: "Ask Nova anything. She will brief Conductor and track the work here.",
+        available: nova.available,
+        sessionKey: nova.sessionKey,
+        chatPlaceholder: nova.available
+          ? "Ask Nova anything. Mission Control will show the real work as OpenClaw performs it."
+          : "No live Nova agent is configured in OpenClaw.",
       },
       overview: {
-        activeTasks: effectiveTasks.filter((task) => task.status === "doing").length,
-        waitingForYou: effectiveTasks.filter((task) => task.status === "waiting" || task.needsApproval).length,
-        blockedTasks: effectiveTasks.filter((task) => task.status === "blocked").length,
-        liveAgents: effectiveAgents.filter((agent) => agent.status === "live").length,
-        readyAutomations: effectiveAutomations.filter((job) => job.enabled).length,
-        connectedChannels: effectiveChannels.filter((channel) => channel.connected).length,
+        openSessions: builtSessions.length,
+        waitingForYou: approvals.length,
+        recentErrors,
+        liveAgents: builtAgents.filter((agent) => agent.status === "live").length,
+        readyAutomations: builtAutomations.filter((job) => job.enabled).length,
+        connectedChannels: builtChannels.filter((channel) => channel.connected).length,
       },
-      tasks: effectiveTasks.slice(0, 24),
+      sessions: builtSessions,
       approvals,
-      automations: effectiveAutomations,
-      channels: effectiveChannels,
-      agents: effectiveAgents,
-      settings,
+      automations: builtAutomations,
+      channels: builtChannels,
+      agents: builtAgents,
+      settings: buildSettingsSummary(configSnapshot, builtChannels.length),
       officeFeed,
-      chat: effectiveChat,
-      proposals: [
-        {
-          id: "office-pack",
-          title: "Enterprise office pack",
-          summary: "Proposed multi-agent office files and config patch for OpenClaw.",
-          status: "ready",
-          patchPath: pack.patchPath,
-          readmePath: pack.readmePath,
-          highlights: [
-            "Nova stays the only human-facing front door.",
-            "Conductor coordinates specialists through cross-agent sessions, which fits OpenClaw better than nested subagent chains.",
-            "Routine lanes can use a local light model first, while enterprise-grade specialists bias to GPT-5.2.",
-          ],
-        },
-      ],
+      chat: toChatTranscript(chat),
     };
   } catch (error) {
-    return buildDemoSnapshot(
+    return buildOfflineSnapshot(
       error instanceof Error ? error.message : "Mission Control could not reach OpenClaw.",
     );
   }

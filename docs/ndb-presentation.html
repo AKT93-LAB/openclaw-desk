@@ -1,0 +1,342 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NDB Presentation</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #efe6d8;
+        --panel: rgba(255, 250, 242, 0.94);
+        --ink: #172232;
+        --muted: #617086;
+        --accent: #b9653f;
+        --accent-soft: #d98660;
+        --line: rgba(23, 34, 50, 0.1);
+        --shadow: 0 24px 60px rgba(23, 34, 50, 0.1);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: Georgia, "Times New Roman", serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(217, 134, 96, 0.18), transparent 28%),
+          radial-gradient(circle at top right, rgba(185, 101, 63, 0.14), transparent 30%),
+          linear-gradient(180deg, #f6eee2, var(--bg));
+      }
+
+      main {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 28px 20px 80px;
+      }
+
+      section {
+        margin-top: 22px;
+        padding: 22px;
+        border: 1px solid var(--line);
+        border-radius: 28px;
+        background: var(--panel);
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 34px 28px;
+      }
+
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        font-family: "Segoe UI", sans-serif;
+        letter-spacing: -0.04em;
+      }
+
+      h1 {
+        font-size: clamp(2.4rem, 6vw, 4.4rem);
+        line-height: 0.95;
+      }
+
+      h2 {
+        font-size: clamp(1.5rem, 3vw, 2.2rem);
+        margin-bottom: 14px;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .hero p {
+        max-width: 68ch;
+        margin-top: 14px;
+        font-size: 1.05rem;
+      }
+
+      .grid {
+        display: grid;
+        gap: 18px;
+      }
+
+      .grid.two {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .grid.three {
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        background: rgba(255, 255, 255, 0.62);
+      }
+
+      .card h3 {
+        margin-bottom: 10px;
+        font-size: 1.15rem;
+      }
+
+      ul {
+        margin: 10px 0 0;
+        padding-left: 20px;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      li + li {
+        margin-top: 8px;
+      }
+
+      .banner {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 18px;
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+        color: #fff8f1;
+        font: 700 0.92rem "Segoe UI", sans-serif;
+      }
+
+      .shot-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 18px;
+      }
+
+      figure {
+        margin: 0;
+      }
+
+      figure img {
+        display: block;
+        width: 100%;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: white;
+      }
+
+      figcaption {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.94rem;
+      }
+
+      code,
+      a {
+        color: var(--accent);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <p class="eyebrow">NDB Presentation</p>
+        <h1>Nova Dashboard for OpenClaw</h1>
+        <p>
+          NDB is a chat-first mission control layer for OpenClaw. It gives one operator a human
+          control room for Nova, live office activity, approvals, automations, and agent editing
+          without requiring direct config-file work for day-to-day administration.
+        </p>
+        <div class="banner">Zero mock policy. Same-host deployment. Review-first writeback.</div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Product shape</p>
+        <h2>What NDB is</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>User experience</h3>
+            <ul>
+              <li>Nova is the default entry point.</li>
+              <li>The operator sees a clean office-style dashboard.</li>
+              <li>Internal agent activity is summarized for humans, with advanced details available.</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Technical shape</h3>
+            <ul>
+              <li>Browser UI in front.</li>
+              <li>Local NDB service on the same host as OpenClaw.</li>
+              <li>OpenClaw gateway bridge plus local workspace file access behind the UI.</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Architecture</p>
+        <h2>How NDB works</h2>
+        <div class="grid three">
+          <article class="card">
+            <h3>Browser</h3>
+            <p>Shows the shell, chat, live work, agent editor, automation summary, approvals, and settings.</p>
+          </article>
+          <article class="card">
+            <h3>NDB service</h3>
+            <p>Holds gateway credentials server-side, builds dashboard snapshots, proxies events, and performs writeback.</p>
+          </article>
+          <article class="card">
+            <h3>OpenClaw host</h3>
+            <p>Supplies real runtime data and real local workspace files. If this side is missing, NDB stays empty and honest.</p>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Live contract</p>
+        <h2>OpenClaw surfaces NDB uses</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Read operations</h3>
+            <ul>
+              <li><code>agents.list</code></li>
+              <li><code>sessions.list</code></li>
+              <li><code>cron.list</code></li>
+              <li><code>channels.status</code></li>
+              <li><code>config.get</code></li>
+              <li><code>chat.history</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Write operations</h3>
+            <ul>
+              <li><code>chat.send</code></li>
+              <li><code>exec.approval.resolve</code></li>
+              <li><code>config.patch</code></li>
+              <li>local workspace file writes for selected agent files</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Office model</p>
+        <h2>The proposed multi-agent team</h2>
+        <div class="grid three">
+          <article class="card"><h3>Nova</h3><p>Human-facing front desk and default operator entry.</p></article>
+          <article class="card"><h3>Conductor</h3><p>Project manager, delegation layer, blocker owner, and workflow coordinator.</p></article>
+          <article class="card"><h3>Research</h3><p>Evidence gathering, fact-finding, and discovery.</p></article>
+          <article class="card"><h3>Builder</h3><p>Implementation and execution work.</p></article>
+          <article class="card"><h3>Reviewer</h3><p>Quality gate, regression spotting, and risk control.</p></article>
+          <article class="card"><h3>Writer</h3><p>User-facing writing and polished deliverables.</p></article>
+          <article class="card"><h3>Automation</h3><p>Recurring work, cron design, and maintenance loops.</p></article>
+          <article class="card"><h3>Ops</h3><p>Health, drift detection, and runtime oversight.</p></article>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Install path</p>
+        <h2>Recommended deployment flow</h2>
+        <div class="grid two">
+          <article class="card">
+            <h3>Host setup</h3>
+            <ul>
+              <li>clone repo to <code>/opt/ndb</code></li>
+              <li>set env in <code>/etc/ndb/ndb.env</code></li>
+              <li>build with <code>npm run build</code></li>
+              <li>run behind <code>systemd</code> on <code>127.0.0.1:3010</code></li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>Live enablement</h3>
+            <ul>
+              <li>verify gateway connection</li>
+              <li>verify <code>/api/dashboard</code> returns <code>mode: "live"</code></li>
+              <li>review and merge the office pack safely</li>
+              <li>validate Nova, approvals, events, agent editing, and file editing</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Current proof</p>
+        <h2>What has been verified already</h2>
+        <ul>
+          <li>typecheck and production build pass</li>
+          <li>the production app serves on <code>127.0.0.1:3010</code></li>
+          <li><code>/api/dashboard</code> returns the strict offline snapshot when no gateway is configured</li>
+          <li>desktop shell and mobile drawers were verified with Playwright</li>
+        </ul>
+        <p style="margin-top: 12px;">
+          Live OpenClaw behavior still requires VPS-side validation because NDB will not fake that data.
+        </p>
+      </section>
+
+      <section>
+        <p class="eyebrow">Screens</p>
+        <h2>Current verified shell</h2>
+        <div class="shot-grid">
+          <figure>
+            <img src="./assets/ndb-shell-desktop-current.png" alt="Desktop shell" />
+            <figcaption>Desktop shell with left navigation, main workspace, and right inspector.</figcaption>
+          </figure>
+          <figure>
+            <img src="./assets/ndb-shell-mobile-closed.png" alt="Mobile shell closed" />
+            <figcaption>Mobile shell with both drawers closed by default.</figcaption>
+          </figure>
+          <figure>
+            <img src="./assets/ndb-shell-mobile-menu-open.png" alt="Mobile menu drawer" />
+            <figcaption>Mobile menu drawer open.</figcaption>
+          </figure>
+          <figure>
+            <img src="./assets/ndb-shell-mobile-inspector-open.png" alt="Mobile inspector drawer" />
+            <figcaption>Mobile inspector drawer open.</figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section>
+        <p class="eyebrow">Operator docs</p>
+        <h2>Use these next</h2>
+        <ul>
+          <li><a href="../README.md">README.md</a></li>
+          <li><a href="./openclaw-agent-install.md">openclaw-agent-install.md</a></li>
+          <li><a href="./openclaw-agent-config-merge.md">openclaw-agent-config-merge.md</a></li>
+          <li><a href="./openclaw-integration-contract.md">openclaw-integration-contract.md</a></li>
+          <li><a href="./ui-gallery.html">ui-gallery.html</a></li>
+        </ul>
+      </section>
+    </main>
+  </body>
+</html>

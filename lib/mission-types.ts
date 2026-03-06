@@ -1,6 +1,4 @@
-export type ConnectionMode = "live" | "demo";
-
-export type TaskStatus = "inbox" | "planned" | "doing" | "blocked" | "waiting" | "done";
+export type ConnectionMode = "live" | "offline";
 
 export type MissionEventKind =
   | "gateway.connected"
@@ -44,23 +42,14 @@ export type ChatTranscriptItem = {
 
 export type ChatTranscriptRole = ChatTranscriptItem["role"];
 
-export type DashboardTask = {
+export type DashboardSession = {
   id: string;
+  key: string;
   title: string;
   summary: string;
-  status: TaskStatus;
-  source: "nova-chat" | "ambient-session" | "automation";
-  ownerAgentId?: string;
-  sessionKey?: string;
-  runId?: string;
-  needsApproval: boolean;
-  blockers: string[];
-  missing: string[];
-  completed: string[];
-  nextStep?: string;
-  createdAtMs: number;
-  updatedAtMs: number;
-  lastEvent?: string;
+  agentId?: string;
+  stateLabel: string;
+  lastActiveAtMs?: number;
 };
 
 export type DashboardApproval = {
@@ -99,17 +88,17 @@ export type DashboardChannel = {
 export type DashboardAgent = {
   id: string;
   name: string;
-  title: string;
-  soul: string;
-  status: "live" | "planned" | "attention";
-  modelStrategy: string;
-  reasoningMode: string;
-  qualityBar: string;
-  currentFocus: string;
-  workload: string;
-  liveTasks: number;
-  outputHome: string;
+  status: "live" | "configured";
+  model: string;
   workspacePath: string;
+  agentDir: string;
+  heartbeatEvery?: string;
+  sandboxMode?: string;
+  identityName?: string;
+  identityTheme?: string;
+  identityEmoji?: string;
+  sessionCount: number;
+  lastSessionTitle?: string;
 };
 
 export type SettingsSummaryItem = {
@@ -119,14 +108,23 @@ export type SettingsSummaryItem = {
   recommendation?: string;
 };
 
-export type ProposalCard = {
+export type EditableAgentFile = {
+  name: string;
+  exists: boolean;
+};
+
+export type AgentEditorState = {
   id: string;
-  title: string;
-  summary: string;
-  status: "ready" | "review";
-  patchPath: string;
-  readmePath: string;
-  highlights: string[];
+  name: string;
+  model: string;
+  workspacePath: string;
+  agentDir: string;
+  heartbeatEvery: string;
+  sandboxMode: string;
+  identityName: string;
+  identityTheme: string;
+  identityEmoji: string;
+  files: EditableAgentFile[];
 };
 
 export type MissionSnapshot = {
@@ -140,18 +138,19 @@ export type MissionSnapshot = {
     lastError?: string;
   };
   nova: {
+    available: boolean;
     sessionKey: string;
     chatPlaceholder: string;
   };
   overview: {
-    activeTasks: number;
+    openSessions: number;
     waitingForYou: number;
-    blockedTasks: number;
+    recentErrors: number;
     liveAgents: number;
     readyAutomations: number;
     connectedChannels: number;
   };
-  tasks: DashboardTask[];
+  sessions: DashboardSession[];
   approvals: DashboardApproval[];
   automations: DashboardAutomation[];
   channels: DashboardChannel[];
@@ -159,5 +158,4 @@ export type MissionSnapshot = {
   settings: SettingsSummaryItem[];
   officeFeed: MissionEvent[];
   chat: ChatTranscriptItem[];
-  proposals: ProposalCard[];
 };
