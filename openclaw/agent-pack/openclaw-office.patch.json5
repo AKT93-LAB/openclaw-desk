@@ -1,0 +1,210 @@
+// Proposal fragment for a Nova-led office inside OpenClaw.
+// Review carefully with your OpenClaw agent before applying.
+//
+// Important:
+// - Replace /srv/mission-control with the real absolute path on your VPS.
+// - Replace ollama/qwen3.5:4b if your working local model ref is named differently.
+// - Reconcile this against your current agents.list and bindings before patching.
+
+{
+  tools: {
+    sessions: {
+      visibility: "all",
+    },
+    agentToAgent: {
+      enabled: true,
+    },
+  },
+
+  agents: {
+    defaults: {
+      heartbeat: {
+        directPolicy: "block",
+        target: "none",
+      },
+      subagents: {
+        archiveAfterMinutes: 45,
+        runTimeoutSeconds: 1800,
+      },
+    },
+
+    list: [
+      {
+        id: "nova",
+        name: "Nova",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/nova",
+        agentDir: "~/.openclaw/agents/nova/agent",
+        model: { primary: "openai/gpt-5.2" },
+        identity: {
+          name: "Nova",
+          theme: "human-first mission control",
+          emoji: "N",
+        },
+        tools: {
+          profile: "messaging",
+          allow: ["sessions_list", "sessions_history", "sessions_send"],
+          deny: ["message", "exec", "process", "read", "write", "edit", "apply_patch", "cron", "gateway", "sessions_spawn"],
+        },
+        heartbeat: {
+          every: "0m",
+        },
+      },
+
+      {
+        id: "conductor",
+        name: "Conductor",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/conductor",
+        agentDir: "~/.openclaw/agents/conductor/agent",
+        model: { primary: "openai/gpt-5.2" },
+        identity: {
+          name: "Conductor",
+          theme: "project manager for the AI office",
+          emoji: "C",
+        },
+        tools: {
+          profile: "coding",
+          allow: ["group:web"],
+          deny: ["message", "cron", "gateway", "sessions_spawn"],
+        },
+        heartbeat: {
+          every: "20m",
+          directPolicy: "block",
+          target: "none",
+          prompt:
+            "Inspect unfinished work, blockers, approvals, and waiting tasks. If a clear next step exists, route it to the correct specialist or Nova. If there is nothing meaningful to do, reply exactly HEARTBEAT_OK.",
+        },
+      },
+
+      {
+        id: "research",
+        name: "Research",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/research",
+        agentDir: "~/.openclaw/agents/research/agent",
+        model: { primary: "openai/gpt-5.2" },
+        identity: {
+          name: "Research",
+          theme: "evidence and discovery desk",
+          emoji: "R",
+        },
+        tools: {
+          profile: "coding",
+          allow: ["group:web"],
+          deny: ["message", "cron", "gateway"],
+        },
+      },
+
+      {
+        id: "builder",
+        name: "Builder",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/builder",
+        agentDir: "~/.openclaw/agents/builder/agent",
+        model: { primary: "openai/gpt-5.2" },
+        identity: {
+          name: "Builder",
+          theme: "implementation desk",
+          emoji: "B",
+        },
+        tools: {
+          profile: "coding",
+          deny: ["message", "cron", "gateway"],
+        },
+      },
+
+      {
+        id: "reviewer",
+        name: "Reviewer",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/reviewer",
+        agentDir: "~/.openclaw/agents/reviewer/agent",
+        model: { primary: "openai/gpt-5.2" },
+        identity: {
+          name: "Reviewer",
+          theme: "quality and risk desk",
+          emoji: "Q",
+        },
+        tools: {
+          profile: "coding",
+          allow: ["group:web"],
+          deny: ["message", "cron", "gateway", "write", "edit", "apply_patch"],
+        },
+      },
+
+      {
+        id: "writer",
+        name: "Writer",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/writer",
+        agentDir: "~/.openclaw/agents/writer/agent",
+        model: { primary: "openai/gpt-5.2" },
+        identity: {
+          name: "Writer",
+          theme: "clarity and delivery desk",
+          emoji: "W",
+        },
+        tools: {
+          profile: "messaging",
+          allow: ["group:fs", "group:web"],
+          deny: ["message", "exec", "process", "cron", "gateway"],
+        },
+      },
+
+      {
+        id: "automation",
+        name: "Automation",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/automation",
+        agentDir: "~/.openclaw/agents/automation/agent",
+        model: {
+          primary: "ollama/qwen3.5:4b",
+          fallbacks: ["openai/gpt-5.2"],
+        },
+        identity: {
+          name: "Automation",
+          theme: "scheduler and workflow desk",
+          emoji: "A",
+        },
+        tools: {
+          profile: "messaging",
+          allow: ["group:automation", "read", "write", "edit"],
+          deny: ["message", "exec", "process", "browser", "canvas"],
+        },
+        heartbeat: {
+          every: "30m",
+          model: "ollama/qwen3.5:4b",
+          lightContext: true,
+          directPolicy: "block",
+          target: "none",
+          prompt:
+            "Review pending recurring work, proposed cron drafts, and stale automations. If there is no useful action to take, reply exactly HEARTBEAT_OK.",
+        },
+      },
+
+      {
+        id: "ops",
+        name: "Ops",
+        workspace: "/srv/mission-control/openclaw/agent-pack/workspaces/ops",
+        agentDir: "~/.openclaw/agents/ops/agent",
+        model: {
+          primary: "ollama/qwen3.5:4b",
+          fallbacks: ["openai/gpt-5.2"],
+        },
+        identity: {
+          name: "Ops",
+          theme: "runtime health desk",
+          emoji: "O",
+        },
+        tools: {
+          profile: "coding",
+          allow: ["group:automation"],
+          deny: ["message"],
+        },
+        heartbeat: {
+          every: "15m",
+          model: "ollama/qwen3.5:4b",
+          lightContext: true,
+          directPolicy: "block",
+          target: "none",
+          prompt:
+            "Check health, drift, blocked queues, and channel state. If everything is normal and no follow-up is needed, reply exactly HEARTBEAT_OK.",
+        },
+      },
+    ],
+  },
+}

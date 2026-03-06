@@ -1,0 +1,17 @@
+[Unit]
+Description=NDB (Nova Dashboard)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/ndb
+EnvironmentFile=/etc/ndb/ndb.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/npm run start -- --hostname 127.0.0.1 --port 3010
+Restart=always
+RestartSec=5
+User=ndb
+Group=ndb
+
+[Install]
+WantedBy=multi-user.target
